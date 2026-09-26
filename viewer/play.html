@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play-test</title>
+<!-- Shared play-test page from backpack-kit. Built from the records: nothing here is hand-maintained. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.controls { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; font: 11px var(--mono);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--cream-3); }
+.controls label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.controls input { accent-color: var(--brass); }
+a.btn { text-decoration: none; display: inline-block; }
+.progress { margin: 8px 0 4px; }
+.progress .bar { height: 8px; }
+.progress .lab { font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cream-3); }
+.lock { background: var(--forest-2); border: 1px solid var(--line); border-radius: 2px; padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 10px; }
+.lock h3 { margin: 0; font-size: 1.3rem; }
+.lock .try { display: flex; gap: 8px; }
+.lock input[type=text] { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 3px;
+  background: var(--forest-deep); color: var(--cream); font: 16px var(--mono); letter-spacing: .12em; outline: none; }
+.lock input[type=text]:focus { border-color: var(--brass); }
+.lock .fb { font: 12px var(--mono); letter-spacing: .06em; min-height: 1em; }
+.lock .fb.no { color: var(--rust-2); }
+.lock .row2 { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn.quiet { border-color: var(--line-strong); }
+.hint { font-size: 14.5px; color: var(--cream-3); border-left: 2px solid var(--brass); padding-left: 10px; }
+.prop { cursor: zoom-in; }
+.prop.new { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass) inset; }
+.prop .ph { font-size: 14px; color: var(--cream-3); max-height: 120px; overflow: hidden; position: relative; }
+.prop .ph::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 30px;
+  background: linear-gradient(transparent, var(--forest-2)); }
+.prop .todo { font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border: 1px dashed var(--line-strong); padding: 16px; text-align: center; }
+.prop img { width: 100%; max-height: 170px; object-fit: contain; background: var(--forest-deep); border-radius: 2px; }
+.newtag { font: 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--forest-deep); background: var(--brass); padding: 1px 7px; border-radius: 2px; }
+.done-banner { background: var(--forest-2); border: 1px solid var(--brass); border-radius: 2px; padding: 26px; text-align: center; margin: 10px 0 20px; }
+.done-banner h2 { margin: 0 0 6px; }
+.log .row { cursor: default; }
+details.checks { margin-top: 44px; background: var(--forest-deep); border: 1px dashed var(--line-strong); border-radius: 2px; padding: 12px 18px; }
+details.checks summary { cursor: pointer; font: 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--rust-2); }
+details.checks ul { margin: 10px 0 4px; padding-left: 18px; font-size: 14px; }
+details.checks li { margin: 4px 0; }
+#box { position: fixed; inset: 0; z-index: 30; background: rgba(10,20,15,.85); display: flex; align-items: flex-start;
+  justify-content: center; overflow-y: auto; padding: 5vh 16px; cursor: zoom-out; }
+#box[hidden] { display: none; }
+#box .inner { background: var(--forest-2); border: 1px solid var(--brass); border-radius: 2px; padding: 22px 26px;
+  max-width: 900px; width: 100%; cursor: default; }
+#box img { width: 100%; height: auto; background: var(--forest-deep); margin: 8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div><div class="eyebrow">Play-test</div><h1 id="proj">Backpack</h1><div class="sub" id="sub"></div></div>
+  <div class="controls">
+    <label><input type="checkbox" id="cand"> Include candidates</label>
+    <label><input type="checkbox" id="names"> Designer view</label>
+    <button class="btn quiet" id="reset">Reset</button>
+    <a class="btn quiet" href="index.html">Design board</a>
+  </div>
+</header>
+<main id="view"></main>
+<div id="box" hidden></div>
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+"use strict";
+const D = window.BACKPACK;
+const $ = s => document.querySelector(s);
+if (!D) { document.body.innerHTML = "<main><h2>No data.js found</h2><p>Run kit.py build first.</p></main>"; throw new Error("no data"); }
+const R = D.records;
+const byId = Object.fromEntries(R.map(r => [r.id, r]));
+const KEY = "bp-play:" + D.config.name;
+
+// ---------- state (per tester, in this browser only) ----------
+let S = { done: {}, hints: {}, order: [], cand: false, names: false, fresh: [] };
+try { S = Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+// ---------- the game, derived from records ----------
+function model() {
+  const ok = r => !r.superseded_by && (["decided", "built"].includes(r.status) || (S.cand && r.status === "candidate"));
+  const puzzles = R.filter(r => r.type === "puzzle" && ok(r)).sort((a, b) => a.id.localeCompare(b.id));
+  const props = R.filter(r => r.type === "prop" && ok(r));
+  const inGame = new Set([...puzzles, ...props].map(r => r.id));
+  const opened = id => !!S.done[id];
+  const inHand = props.filter(p => p.found_in === "start" || (p.found_in && opened(p.found_in)));
+  const handIds = new Set(inHand.map(p => p.id));
+  const ready = (p, done, hand) => asList(p.needs).every(n => done.has(n)) && asList(p.props).filter(x => inGame.has(x)).every(x => hand.has(x));
+  const doneSet = new Set(Object.keys(S.done));
+  const open = puzzles.filter(p => !opened(p.id) && ready(p, doneSet, handIds));
+
+  // Designer checks: replay the whole game assuming every lock is solved.
+  const simDone = new Set(), simHand = new Set(props.filter(p => p.found_in === "start").map(p => p.id));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const p of puzzles) if (!simDone.has(p.id) && ready(p, simDone, simHand)) {
+      simDone.add(p.id); grew = true;
+      for (const x of props) if (x.found_in === p.id) simHand.add(x.id);
+    }
+  }
+  const checks = [];
+  for (const p of puzzles) {
+    if (!simDone.has(p.id)) {
+      const why = [...asList(p.needs).filter(n => !simDone.has(n)).map(n => `needs ${n}${inGame.has(n) ? "" : " (not in the game at this status)"}`),
+                   ...asList(p.props).filter(x => inGame.has(x) && !simHand.has(x)).map(x => `prop ${x} never reached`)];
+      checks.push(`${p.id} ${p.title}: can never be opened (${why.join(", ") || "unknown"})`);
+    }
+    if (!p.answer) checks.push(`${p.id} ${p.title}: no answer recorded, so testers can only skip it`);
+    if (!p.lock) checks.push(`${p.id} ${p.title}: no lock type set`);
+    for (const x of asList(p.props)) if (!inGame.has(x)) checks.push(`${p.id} uses ${x}, which isn't in the game at this status`);
+  }
+  for (const x of props) {
+    if (!x.found_in) checks.push(`${x.id} ${x.title}: no found_in, so the player never gets it`);
+    else if (x.found_in !== "start" && !inGame.has(x.found_in)) checks.push(`${x.id} ${x.title}: found in ${x.found_in}, which isn't in the game at this status`);
+    if (!view(x).has) checks.push(`${x.id} ${x.title}: nothing for the player to see yet (no "## Player sees" text or image asset)`);
+  }
+  return { puzzles, props, inHand, open, checks };
+}
+function view(prop) {
+  const imgs = R.filter(a => a.type === "asset" && a.for === prop.id && a.fileExists && a.kind === "image" && !a.superseded_by);
+  const text = mdSection(prop.body, "Player sees");
+  return { imgs, text, has: imgs.length > 0 || !!text };
+}
+const norm = s => String(s ?? "").toLowerCase().replace(/[\s\-_.,:;/|]+/g, "");
+const lockName = p => (p.lock ? `${p.lock} lock` : "Lock") ;
+
+// ---------- render ----------
+function render() {
+  const M = model();
+  const doneN = M.puzzles.filter(p => S.done[p.id]).length, total = M.puzzles.length;
+  let h = "";
+  if (!total) {
+    h += `<h2>Nothing to play yet</h2><div class="note">The play-test uses puzzles and props with status <b>decided</b> or <b>built</b>${S.cand ? " or <b>candidate</b>" : ""}. Tick "Include candidates" to try the ideas that are further along.</div>`;
+  } else {
+    h += `<div class="progress"><div class="lab">${doneN} of ${total} locks open</div><div class="bar"><span style="width:${doneN / total * 100}%;background:var(--brass)"></span></div></div>`;
+    if (doneN === total) h += `<div class="done-banner"><div class="eyebrow">Adventure complete</div><h2>Every lock is open.</h2><div class="note">Everything you found is below.</div></div>`;
+    else {
+      h += `<h2>Locks you can try <span class="n">${M.open.length}</span></h2>`;
+      h += M.open.length ? `<div class="grid">${M.open.map(lockCard).join("")}</div>`
+        : `<div class="warnbox">You're stuck: no lock can be tried with what's in your hands. See the designer checks below.</div>`;
+    }
+  }
+  const fresh = new Set(S.fresh);
+  const hand = [...M.inHand].sort((a, b) => (fresh.has(b.id) - fresh.has(a.id)) || a.title.localeCompare(b.title));
+  h += `<h2>In your hands <span class="n">${hand.length}</span></h2>`;
+  h += hand.length ? `<div class="grid">${hand.map(p => propCard(p, fresh.has(p.id))).join("")}</div>` : `<div class="empty">Nothing yet. Props marked found_in: start appear here.</div>`;
+  if (S.order.length) {
+    h += `<h2>Opened so far</h2><div class="rows log">${S.order.filter(id => S.done[id]).map((id, i) => {
+      const p = byId[id], got = M.props.filter(x => x.found_in === id);
+      return `<div class="row"><span class="when">${i + 1}. ${S.done[id] === "skip" ? "skipped" : "opened"}</span><span class="grow">${esc(p ? (S.names ? `${p.id} ${p.title}` : lockName(p)) : id)}${got.length ? ` → found ${got.map(x => esc(x.title)).join(", ")}` : ""}</span></div>`;
+    }).join("")}</div>`;
+  }
+  h += `<details class="checks"${M.checks.length && S.names ? " open" : ""}><summary>Designer checks · ${M.checks.length}</summary>${M.checks.length ? `<ul>${M.checks.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : `<p class="note">No problems: every lock can be reached and every prop appears.</p>`}</details>`;
+  $("#view").innerHTML = h;
+}
+function lockCard(p) {
+  const hints = mdListItems(mdSection(p.body, "Hints"));
+  const shown = Math.min(S.hints[p.id] || 0, hints.length);
+  return `<div class="lock" data-p="${esc(p.id)}">
+    <div class="top">${S.names ? `<span class="rid">${esc(p.id)}</span>` : ""}<span class="kv">${esc(lockName(p))}</span></div>
+    ${S.names ? `<h3>${esc(p.title)}</h3>` : ""}
+    <form class="try"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${p.lock && /letter/.test(p.lock) ? "WORD" : "code"}"><button class="btn">Try</button></form>
+    <div class="fb"></div>
+    ${hints.slice(0, shown).map((t, i) => `<div class="hint"><b>Hint ${i + 1}.</b> ${inline(t)}</div>`).join("")}
+    <div class="row2">${shown < hints.length ? `<button class="btn quiet" data-hint>Hint ${shown + 1} of ${hints.length}</button>` : ""}<button class="btn quiet" data-skip title="Open it without the code">Skip</button></div>
+  </div>`;
+}
+function propCard(p, isNew) {
+  const v = view(p);
+  const vis = v.imgs.length ? `<img src="files/${esc(v.imgs[0].file)}" alt="">` : v.text ? `<div class="ph md">${md(v.text)}</div>` : `<div class="todo">Not designed yet</div>`;
+  return `<article class="card prop${isNew ? " new" : ""}" data-prop="${esc(p.id)}"><div class="top">${isNew ? '<span class="newtag">new</span>' : ""}${S.names ? `<span class="rid">${esc(p.id)}</span>` : ""}</div><h3>${esc(p.title)}</h3>${vis}</article>`;
+}
+function openProp(id) {
+  const p = byId[id], v = view(p);
+  const b = $("#box");
+  b.innerHTML = `<div class="inner"><button class="btn close" data-close>Close ✕</button><h2 style="margin-top:0">${esc(p.title)}</h2>
+    ${v.imgs.map(a => `<img src="files/${esc(a.file)}" alt="">`).join("")}${v.text ? `<div class="md">${md(v.text)}</div>` : ""}
+    ${!v.has ? `<div class="empty">Not designed yet: add a "## Player sees" section or an image asset to ${esc(p.id)}.</div>` : ""}</div>`;
+  b.hidden = false;
+}
+
+// ---------- events ----------
+function solve(id, how) {
+  S.done[id] = how; S.order.push(id);
+  S.fresh = R.filter(x => x.type === "prop" && x.found_in === id).map(x => x.id);
+  save(); render();
+}
+document.addEventListener("submit", e => {
+  e.preventDefault();
+  const card = e.target.closest("[data-p]"), p = byId[card.dataset.p], input = card.querySelector("input");
+  if (p.answer && norm(input.value) === norm(p.answer)) return solve(p.id, "code");
+  const fb = card.querySelector(".fb");
+  fb.className = "fb no"; fb.textContent = p.answer ? "The lock doesn't open." : "No answer recorded for this lock yet. Use Skip.";
+  input.select();
+});
+document.addEventListener("click", e => {
+  const card = e.target.closest("[data-p]");
+  if (card && e.target.closest("[data-hint]")) { S.hints[card.dataset.p] = (S.hints[card.dataset.p] || 0) + 1; save(); render(); return; }
+  if (card && e.target.closest("[data-skip]")) return solve(card.dataset.p, "skip");
+  const prop = e.target.closest("[data-prop]");
+  if (prop) return openProp(prop.dataset.prop);
+  if (e.target.id === "box" || e.target.closest("[data-close]")) $("#box").hidden = true;
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("#box").hidden = true; });
+$("#cand").checked = S.cand; $("#names").checked = S.names;
+$("#cand").addEventListener("change", e => { S.cand = e.target.checked; save(); render(); });
+$("#names").addEventListener("change", e => { S.names = e.target.checked; save(); render(); });
+$("#reset").addEventListener("click", () => { if (confirm("Start the adventure over? Your progress in this browser is cleared.")) { S = Object.assign(S, { done: {}, hints: {}, order: [], fresh: [] }); save(); render(); } });
+
+$("#proj").textContent = D.config.name;
+document.title = D.config.name + " — play-test";
+$("#sub").textContent = `Built ${D.builtAt} · progress is saved in this browser only`;
+render();
+</script>
+</body>
+</html>

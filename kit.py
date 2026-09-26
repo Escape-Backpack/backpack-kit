@@ -38,7 +38,7 @@ STATUSES = ["idea", "candidate", "decided", "built", "parked"]
 QUESTION_STATUSES = ["open", "answered", "parked"]
 STALE_STATUSES = {"idea", "candidate"}
 # Fields whose values are record IDs. Backlinks are derived from these.
-REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for"]
+REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for", "found_in"]
 INT_FIELDS = ["order", "difficulty"]
 ID_RE = re.compile(r"^([A-Z]{1,2})-(\d{3,})$")
 # Default lock kit for every backpack (GUIDE.md). A backpack can override "locks" in backpack.json.
@@ -232,6 +232,10 @@ def load(project):
     for r in records:
         for field in REF_FIELDS:
             for target in as_list(r.get(field)):
+                if field == "found_in" and target == "start":
+                    continue
+                if field == "found_in" and target in by_id and by_id[target]["type"] != "puzzle":
+                    warn(r["path"], r["id"], f"found_in must be start or a puzzle ID, not {target}")
                 if target not in by_id:
                     warn(r["path"], r["id"], f"{field} points to unknown id {target}")
         if r.get("superseded_by") == r["id"]:
@@ -284,7 +288,10 @@ def cmd_build(project, quiet=False):
     data = load(project)
     site = os.path.join(project, "site")
     os.makedirs(site, exist_ok=True)
-    shutil.copyfile(os.path.join(KIT, "viewer", "index.html"), os.path.join(site, "index.html"))
+    viewer = os.path.join(KIT, "viewer")
+    for name in os.listdir(viewer):
+        if name.endswith((".html", ".js", ".css")):
+            shutil.copyfile(os.path.join(viewer, name), os.path.join(site, name))
     # Copy made asset files into site/files/ so the page works when only site/ is published.
     files_dir = os.path.join(site, "files")
     shutil.rmtree(files_dir, ignore_errors=True)

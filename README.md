@@ -26,6 +26,7 @@ Requires Python 3.9+ and git. There are no other dependencies.
 | Rebuild after edits | `python ../backpack-kit/kit.py build`, then refresh the page |
 | Add a record | `python ../backpack-kit/kit.py new puzzle "Star chart"` |
 | Check for broken IDs etc. | `python ../backpack-kit/kit.py check` |
+| Play-test the decided game | the **▶ Play-test** button, or `site/play.html` |
 
 `site/` is generated and git-ignored. You can also open `site/index.html`
 directly, without the server.
@@ -57,7 +58,7 @@ After the first push, turn on Pages:
 | Path | What it is |
 |---|---|
 | `kit.py` | Build, serve, check, new, init |
-| `viewer/index.html` | The shared viewer (copied into each project's `site/` on build) |
+| `viewer/` | The shared pages, copied into each project's `site/` on build: `index.html` (design board), `play.html` (play-test), plus `style.css` and `common.js` |
 | `templates/records/` | One template per record type |
 | `templates/project/` | Files `init` copies into a new backpack |
 | `docs/RECORDS.md` | Record format reference |
@@ -66,3 +67,4 @@ After the first push, turn on Pages:
 
 ## Planned
 - v2: a puzzle flow chart generated from the puzzles' `needs:` fields.
+- Play-test: a feedback box for testers.

@@ -28,7 +28,7 @@ The build computes these, so you never type them:
 | premise | PR | `premise/` | `aspect`: sender / player goal / story / tone / ending / other |
 | beat | ST | `structure/` | `order` (number), `label`, `reveals` |
 | puzzle | PZ | `puzzles/` | `beat` (one ID), `props` [IDs], `needs` [IDs], `mechanic`, `difficulty` 1–3, `lock`, `answer` |
-| prop | PP | `props/` | `form`: physical / printed / digital, `source`: make / buy / print / 3d-print |
+| prop | PP | `props/` | `form`: physical / printed / digital, `source`: make / buy / print / 3d-print, `found_in`: `start` or a puzzle ID |
 | question | Q | `questions/` | `about` [IDs], `answer` |
 | asset | AS | `assets/` | `kind`: image / audio / text / print, `for` (one prop ID), `tool`, `file`. The body holds the generation prompt. |
 
@@ -55,7 +55,22 @@ Each relationship is stored on **one** side only. The viewer shows the other sid
 | puzzle | `needs` | "needed by" (feeds the v2 flow chart) |
 | asset | `for` | the prop's asset list |
 | question | `about` | "questions about this" |
+| prop | `found_in` | "opens to reveal" on the puzzle |
 | any | `links` | "linked from" |
+
+## Play-test page (`play.html`)
+Built from the records, never edited by hand. It uses puzzles and props that are
+`decided` or `built` (a toggle adds `candidate`), and plays them like this:
+
+1. The player starts with every prop that has `found_in: start`.
+2. A lock can be tried once its `needs` are open and its `props` are in hand.
+3. The typed code is checked against `answer`. Case, spaces and dashes are ignored.
+4. Opening it reveals the props with `found_in: <that puzzle>`.
+
+What a prop shows: its image assets (`kind: image` with a `file`), and/or the
+`## Player sees` section of its body. A puzzle's `## Hints` list becomes the hint ladder.
+"Designer checks" at the bottom lists locks that can never be opened, props the
+player never gets, and props with nothing to show.
 
 ## Syntax rules (small YAML subset)
 - `key: value` on one line. Lists are `[A, B]` or `- item` lines underneath.
