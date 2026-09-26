@@ -7,6 +7,20 @@ confirmed in a real design session. This guide is not a place for guesses.
 A family member sends the player a backpack about their passion. The player
 solves puzzles through the backpack's contents.
 
+## Final prize: a medallion (all backpacks)
+Every backpack ends with a medallion as the final prize.
+
+It is 3D printed in two colours: **dark blue body, yellow details.**
+
+The Norse medallion is the reference:
+- Files: `EscapeBackpack/NorseBackpack/Props/Medallion/` (STL, build script, README)
+- 50 mm diameter, 4.4 mm thick, one solid piece with no assembly
+- Front: a crest raised 0.6 mm above a 3.8 mm body. The yellow comes from a colour change at layer 20 (Z = 4.00 mm at 0.20 mm layers).
+- Back: "ADVENTURE COMPLETE · ESCAPE BACKPACK" around a compass, recessed 0.4 mm, in the body colour
+- Status as of 2026-09-26: not physically test-printed yet (per its README)
+
+Open: which parts stay the same across backpacks (size, the back, the style), and which change per theme.
+
 ## Default locks (all backpacks)
 - 3-digit lock
 - 4-digit lock
