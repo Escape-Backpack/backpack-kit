@@ -6,7 +6,7 @@ type: prop
 status: idea
 # physical | printed | digital
 form:
-# make | buy | print
+# make | buy | print | 3d-print
 source:
 # Any related record IDs, e.g. [PZ-002, Q-004]
 links: []

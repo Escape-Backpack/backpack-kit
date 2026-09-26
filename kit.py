@@ -41,7 +41,10 @@ STALE_STATUSES = {"idea", "candidate"}
 REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for"]
 INT_FIELDS = ["order", "difficulty"]
 ID_RE = re.compile(r"^([A-Z]{1,2})-(\d{3,})$")
-DEFAULT_CONFIG = {"name": "Untitled backpack", "beatLabel": "Structure beat", "staleDays": 30}
+# Default lock kit for every backpack (GUIDE.md). A backpack can override "locks" in backpack.json.
+DEFAULT_LOCKS = ["3-digit", "4-digit", "4-letter", "3-digit-colour"]
+DEFAULT_CONFIG = {"name": "Untitled backpack", "beatLabel": "Structure beat", "staleDays": 30,
+                  "locks": DEFAULT_LOCKS}
 
 
 # ---------- parsing ----------
@@ -199,6 +202,8 @@ def load(project):
         allowed = QUESTION_STATUSES if rtype == "question" else STATUSES
         if fields.get("status") not in allowed:
             warn(rel, rid, f"status {fields.get('status')!r} is not one of: {', '.join(allowed)}")
+        if rtype == "puzzle" and fields.get("lock") and fields["lock"] not in cfg["locks"]:
+            warn(rel, rid, f"lock {fields['lock']!r} is not one of: {', '.join(cfg['locks'])}")
 
         history = per_file.get(rel, [])
         is_dirty = rel in dirty or not history

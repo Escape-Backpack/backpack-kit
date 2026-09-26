@@ -27,10 +27,13 @@ The build computes these, so you never type them:
 |---|---|---|---|
 | premise | PR | `premise/` | `aspect`: sender / player goal / story / tone / ending / other |
 | beat | ST | `structure/` | `order` (number), `label`, `reveals` |
-| puzzle | PZ | `puzzles/` | `beat` (one ID), `props` [IDs], `needs` [IDs], `mechanic`, `difficulty` 1–3, `answer` |
-| prop | PP | `props/` | `form`: physical / printed / digital, `source`: make / buy / print |
+| puzzle | PZ | `puzzles/` | `beat` (one ID), `props` [IDs], `needs` [IDs], `mechanic`, `difficulty` 1–3, `lock`, `answer` |
+| prop | PP | `props/` | `form`: physical / printed / digital, `source`: make / buy / print / 3d-print |
 | question | Q | `questions/` | `about` [IDs], `answer` |
 | asset | AS | `assets/` | `kind`: image / audio / text / print, `for` (one prop ID), `tool`, `file`. The body holds the generation prompt. |
+
+`lock` must be one of the lock types in `backpack.json` → `locks`. The default is the kit's
+standard set (see GUIDE.md): `3-digit`, `4-digit`, `4-letter`, `3-digit-colour`.
 
 "Structure beat" is the generic name. Each backpack sets what the player sees it as
 in `backpack.json` → `beatLabel` (the Norse backpack used postcards).

@@ -231,7 +231,7 @@ function parkedNote(type) {
 const EXTRA = {
   premise: r => kv("aspect", r.aspect),
   beat: r => kv("label", r.label) + kv("reveals", r.reveals) + refs("puzzles", backOf(r.id, "beat").map(x => x.id)),
-  puzzle: r => (r.beat ? refs(BEAT.toLowerCase(), [r.beat]) : "") + kv("mechanic", r.mechanic) + kv("difficulty", dots(r.difficulty)) + refs("needs", asList(r.needs)) + refs("props", asList(r.props)),
+  puzzle: r => (r.beat ? refs(BEAT.toLowerCase(), [r.beat]) : "") + kv("lock", r.lock) + kv("mechanic", r.mechanic) + kv("difficulty", dots(r.difficulty)) + refs("needs", asList(r.needs)) + refs("props", asList(r.props)),
   prop: r => kv("form", [r.form, r.source].filter(Boolean).join(" · ")) + refs("used by", backOf(r.id, "props").map(x => x.id)) + refs("assets", backOf(r.id, "for").map(x => x.id)),
   question: r => refs("about", asList(r.about)) + (r.answer ? kv("answer", r.answer) : ""),
   asset: r => assetExtra(r, false),
@@ -330,15 +330,18 @@ function renderStructure() {
   return h;
 }
 
-const filt = { status: "", beat: "" };
+const filt = { status: "", beat: "", lock: "" };
 function renderPuzzles() {
   const all = ofType("puzzle").filter(active);
   const beats = ofType("beat").filter(active).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-  const list = vis(all).filter(r => (!filt.status || r.status === filt.status) && (!filt.beat || (filt.beat === "-" ? !r.beat : r.beat === filt.beat)));
+  const list = vis(all).filter(r => (!filt.status || r.status === filt.status) && (!filt.beat || (filt.beat === "-" ? !r.beat : r.beat === filt.beat))
+    && (!filt.lock || (filt.lock === "-" ? !r.lock : r.lock === filt.lock)));
   const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`;
   return `<h2>Puzzles <span class="n">${list.length} of ${all.length}</span></h2>${parkedNote("puzzle")}
     <div class="filters">Status <select data-filt="status">${opt("", "all", filt.status)}${["idea", "candidate", "decided", "built"].map(s => opt(s, s, filt.status)).join("")}</select>
-    ${esc(BEAT)} <select data-filt="beat">${opt("", "all", filt.beat)}${beats.map(b => opt(b.id, `${b.order ?? "?"}. ${b.title}`, filt.beat)).join("")}${opt("-", "none", filt.beat)}</select></div>
+    ${esc(BEAT)} <select data-filt="beat">${opt("", "all", filt.beat)}${beats.map(b => opt(b.id, `${b.order ?? "?"}. ${b.title}`, filt.beat)).join("")}${opt("-", "none", filt.beat)}</select>
+    Lock <select data-filt="lock">${opt("", "all", filt.lock)}${(D.config.locks || []).map(l => opt(l, l, filt.lock)).join("")}${opt("-", "none", filt.lock)}</select>
+    <span style="color:var(--muted)">${all.filter(r => r.lock).length} with a lock</span></div>
     ${grid(list, EXTRA.puzzle)}`;
 }
 

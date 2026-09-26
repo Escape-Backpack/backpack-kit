@@ -14,6 +14,8 @@ needs: []
 mechanic:
 # 1 (easy) to 3 (hard)
 difficulty:
+# Lock it opens: 3-digit | 4-digit | 4-letter | 3-digit-colour (blank if none)
+lock:
 answer:
 # Any related record IDs, e.g. [PZ-002, Q-004]
 links: []

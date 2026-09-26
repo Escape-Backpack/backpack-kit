@@ -7,6 +7,21 @@ confirmed in a real design session. This guide is not a place for guesses.
 A family member sends the player a backpack about their passion. The player
 solves puzzles through the backpack's contents.
 
+## Default locks (all backpacks)
+- 3-digit lock
+- 4-digit lock
+- 4-letter lock
+- 3-digit lock where each wheel is a different colour
+
+In records these are `lock: 3-digit | 4-digit | 4-letter | 3-digit-colour`.
+A backpack can use a different set by adding `"locks": [...]` to its `backpack.json`.
+
+## What we can build with (all backpacks)
+- **Home printing:** cardstock, colour.
+- **3D printing** at a friend's: Prusa i3 MK3S+, several filament colours (black, white, dark blue, yellow, green...).
+- **Small props:** rulers, UV light and UV pen, and so on.
+- **Bought items:** the backpack itself, relevant small items.
+
 ## Puzzle and clue principles
 - Clues are subtle, with no signposting, especially in the final puzzle.
 
