@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backpack Design</title>
+<!-- Shared viewer from backpack-kit. Do not edit the copy in site/: it is overwritten on every build. -->
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e3e1d9;
+  --accent: #2f5bd3; --accent-soft: #e6ecfb;
+  --s-idea: #8a8a85; --s-candidate: #c98a12; --s-decided: #2f5bd3; --s-built: #2e8a4e;
+  --s-parked: #8b6bb1; --s-open: #c98a12; --s-answered: #2e8a4e; --s-superseded: #b0aea6;
+  --warn: #b5431f; --warn-soft: #fbe9e2; --stale: #a0661a; --stale-soft: #fbf0dc;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #201f1e; --ink: #ecebe6; --muted: #9c9a92; --line: #33322f;
+    --accent: #7ea0ff; --accent-soft: #1f2a48;
+    --s-idea: #8f8e88; --s-candidate: #e0a93a; --s-decided: #7ea0ff; --s-built: #5cc27f;
+    --s-parked: #b394dc; --s-open: #e0a93a; --s-answered: #5cc27f; --s-superseded: #6b6a64;
+    --warn: #ff8c69; --warn-soft: #3a211a; --stale: #e0a93a; --stale-soft: #33280f;
+    --shadow: none; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; gap: 16px; align-items: center; justify-content: space-between;
+  padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 19px; }
+header .sub { color: var(--muted); font-size: 12.5px; }
+#q { width: min(320px, 100%); padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--ink); font: inherit; }
+nav { display: flex; gap: 2px; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--line);
+  overflow-x: auto; position: sticky; top: 0; z-index: 5; }
+nav a { padding: 10px 12px; color: var(--muted); text-decoration: none; white-space: nowrap;
+  border-bottom: 2px solid transparent; font-size: 14px; }
+nav a:hover { color: var(--ink); }
+nav a.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+nav .n { font-size: 11.5px; color: var(--muted); margin-left: 4px; font-weight: 400; }
+main { padding: 20px 24px 60px; max-width: 1280px; margin: 0 auto; }
+h2 { font-size: 16px; margin: 26px 0 10px; }
+h2:first-child { margin-top: 4px; }
+h2 .n { color: var(--muted); font-weight: 400; font-size: 13px; }
+.empty { color: var(--muted); font-style: italic; padding: 8px 0; }
+.note { color: var(--muted); font-size: 13px; margin: 6px 0 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  cursor: pointer; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.card:hover { border-color: var(--accent); }
+.card h3 { margin: 0; font-size: 15px; line-height: 1.3; }
+.card.is-stale { border-left: 3px solid var(--stale); }
+.top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rid { font: 600 11.5px ui-monospace, Consolas, monospace; color: var(--muted); }
+.pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 99px; color: #fff;
+  text-transform: lowercase; letter-spacing: .02em; }
+.flag { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--stale-soft); color: var(--stale); }
+.flag.dirty { background: var(--accent-soft); color: var(--accent); }
+.kv { font-size: 13px; color: var(--muted); }
+.kv b { color: var(--ink); font-weight: 500; }
+.meta { font-size: 12px; color: var(--muted); margin-top: auto; }
+.refs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12.5px; }
+.refs .lbl { color: var(--muted); margin-right: 2px; }
+.ref { display: inline-flex; gap: 5px; align-items: center; padding: 1px 7px; border-radius: 6px; font-size: 12.5px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--ink); cursor: pointer; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
+.ref:hover { border-color: var(--accent); }
+.ref .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ref.missing { border-color: var(--warn); color: var(--warn); cursor: default; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; font-size: 13px; }
+.filters select { font: inherit; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); }
+/* overview */
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  box-shadow: var(--shadow); text-decoration: none; color: inherit; }
+.stat:hover { border-color: var(--accent); }
+.stat .big { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.stat .lab { color: var(--muted); font-size: 13px; }
+.bar { display: flex; height: 7px; border-radius: 99px; overflow: hidden; background: var(--line); margin: 10px 0 6px; }
+.bar span { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 0 28px; }
+.rows { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.row { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-top: 1px solid var(--line);
+  cursor: pointer; font-size: 14px; }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--bg); }
+.row .when { color: var(--muted); font-size: 12px; white-space: nowrap; min-width: 78px; }
+.row .grow { flex: 1; min-width: 0; }
+.row.static { cursor: default; }
+.row.static:hover { background: none; }
+.warnbox { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px;
+  font-size: 13.5px; }
+.warnbox li { margin: 3px 0; }
+.warnbox code { font-size: 12px; }
+/* structure */
+.beat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  margin-bottom: 12px; box-shadow: var(--shadow); }
+.beat-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
+.beat-h .ord { font-size: 22px; font-weight: 700; color: var(--accent); min-width: 28px; }
+.beat-h h3 { margin: 0; font-size: 16px; }
+.beat .reveals { margin: 6px 0 10px 38px; color: var(--muted); font-size: 14px; }
+.beat .grid { margin-left: 38px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+/* assets */
+.prompt { font: 12.5px/1.45 ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 7px; padding: 8px 10px; white-space: pre-wrap; max-height: 150px; overflow: auto; margin: 0; cursor: text; }
+.btn { font: inherit; font-size: 12.5px; padding: 3px 10px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.made { font-size: 12px; font-weight: 600; }
+.thumb { max-width: 100%; max-height: 140px; border-radius: 6px; object-fit: contain; align-self: flex-start; }
+/* drawer */
+#scrim { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 20; }
+#drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--panel);
+  border-left: 1px solid var(--line); z-index: 21; overflow-y: auto; padding: 18px 24px 40px;
+  box-shadow: -8px 0 30px rgba(0,0,0,.12); }
+#drawer h2 { font-size: 20px; margin: 6px 0 12px; }
+#drawer .sec { margin: 20px 0 6px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.close { float: right; }
+.fields { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; font-size: 14px; margin: 0; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; min-width: 0; }
+.spoiler { filter: blur(5px); cursor: pointer; transition: filter .15s; }
+.spoiler.shown { filter: none; }
+.md { font-size: 14.5px; }
+.md h3, .md h4, .md h5 { margin: 16px 0 6px; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.md p { margin: 6px 0; }
+.md ul, .md ol { margin: 6px 0; padding-left: 22px; }
+.md code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.md pre { background: var(--bg); padding: 10px; border-radius: 7px; overflow-x: auto; }
+.md blockquote { margin: 6px 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--muted); }
+.md a { color: var(--accent); }
+.path { font: 12px ui-monospace, Consolas, monospace; color: var(--muted); }
+@media (max-width: 640px) {
+  header, nav { padding-left: 16px; padding-right: 16px; }
+  main { padding: 16px; }
+  .beat .reveals, .beat .grid { margin-left: 0; }
+  .cols { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="proj">Backpack</h1><div class="sub" id="sub"></div></div>
+  <input id="q" type="search" placeholder="Search records  ( / )" autocomplete="off">
+</header>
+<nav id="tabs"></nav>
+<main id="view"></main>
+<div id="scrim" hidden></div>
+<aside id="drawer" hidden></aside>
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.BACKPACK;
+const $ = s => document.querySelector(s);
+if (!D) {
+  document.body.innerHTML = '<main><h2>No data.js found</h2><p>Run <code>python ../backpack-kit/kit.py build</code> in the project folder.</p></main>';
+  throw new Error("no data");
+}
+
+// ---------- model ----------
+const R = D.records;
+const byId = Object.fromEntries(R.map(r => [r.id, r]));
+const REF = D.refFields;
+const asList = v => v == null || v === "" ? [] : Array.isArray(v) ? v : [v];
+const back = {};  // target id -> [{from, field}]
+for (const r of R) for (const f of REF) for (const t of asList(r[f])) (back[t] ||= []).push({ from: r.id, field: f });
+const backOf = (id, field) => (back[id] || []).filter(b => !field || b.field === field).map(b => byId[b.from]);
+const superseded = r => !!r.superseded_by;
+const active = r => r.status !== "parked" && !superseded(r);
+const ofType = t => R.filter(r => r.type === t);
+const BEAT = D.config.beatLabel || "Structure beat";
+const STATUS_ORDER = ["idea", "candidate", "decided", "built", "open", "answered", "parked"];
+const byTouched = (a, b) => b.touched.localeCompare(a.touched) || a.id.localeCompare(b.id);
+
+// ---------- helpers ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const sColor = s => `var(--s-${STATUS_ORDER.includes(s) ? s : "idea"})`;
+const pill = s => `<span class="pill" style="background:${sColor(s)}">${esc(s || "no status")}</span>`;
+const ago = r => r.ageDays === 0 ? "today" : r.ageDays === 1 ? "yesterday" : `${r.ageDays} days ago`;
+const refChip = id => {
+  const r = byId[id];
+  if (!r) return `<span class="ref missing" title="No record with this id">${esc(id)}</span>`;
+  return `<span class="ref" data-id="${esc(id)}" title="${esc(r.title)}"><span class="dot" style="background:${sColor(superseded(r) ? "superseded" : r.status)}"></span>${esc(id)} ${esc(r.title)}</span>`;
+};
+const refs = (label, ids) => ids.length ? `<div class="refs"><span class="lbl">${esc(label)}</span>${ids.map(refChip).join("")}</div>` : "";
+const kv = (label, v) => v == null || v === "" ? "" : `<div class="kv">${esc(label)}: <b>${esc(v)}</b></div>`;
+const dots = n => n ? "●".repeat(n) + "○".repeat(Math.max(0, 3 - n)) : "";
+
+let query = "";
+function matches(r) {
+  if (!query) return true;
+  const hay = [r.id, r.title, r.body, ...Object.entries(r).filter(([k, v]) => typeof v === "string" && !["body", "path"].includes(k)).map(([, v]) => v)].join(" ").toLowerCase();
+  return query.split(/\s+/).every(w => hay.includes(w));
+}
+const vis = list => list.filter(matches);
+
+function card(r, extra = "") {
+  return `<article class="card${r.stale ? " is-stale" : ""}" data-id="${esc(r.id)}">
+    <div class="top"><span class="rid">${esc(r.id)}</span>${pill(r.status)}${r.stale ? '<span class="flag">stale</span>' : ""}${r.dirty ? '<span class="flag dirty">uncommitted</span>' : ""}</div>
+    <h3>${esc(r.title)}</h3>${extra}
+    <div class="meta">touched ${ago(r)}</div></article>`;
+}
+const grid = (list, extraFn = () => "") => list.length ? `<div class="grid">${list.map(r => card(r, extraFn(r))).join("")}</div>` : `<div class="empty">Nothing here${query ? " matching the search" : ""}.</div>`;
+function parkedNote(type) {
+  const n = ofType(type).filter(r => !active(r)).length;
+  return n ? `<div class="note">${n} parked or superseded — see the <a href="#parked">Parked</a> tab.</div>` : "";
+}
+
+// type-specific card extras
+const EXTRA = {
+  premise: r => kv("aspect", r.aspect),
+  beat: r => kv("label", r.label) + kv("reveals", r.reveals) + refs("puzzles", backOf(r.id, "beat").map(x => x.id)),
+  puzzle: r => (r.beat ? refs(BEAT.toLowerCase(), [r.beat]) : "") + kv("mechanic", r.mechanic) + kv("difficulty", dots(r.difficulty)) + refs("needs", asList(r.needs)) + refs("props", asList(r.props)),
+  prop: r => kv("form", [r.form, r.source].filter(Boolean).join(" · ")) + refs("used by", backOf(r.id, "props").map(x => x.id)) + refs("assets", backOf(r.id, "for").map(x => x.id)),
+  question: r => refs("about", asList(r.about)) + (r.answer ? kv("answer", r.answer) : ""),
+  asset: r => assetExtra(r, false),
+};
+function assetExtra(r, full) {
+  const made = r.file && r.fileExists;
+  let h = kv("kind", [r.kind, r.tool].filter(Boolean).join(" · ")) + (r.for ? refs("for", [r.for]) : "");
+  h += `<div class="made" style="color:${made ? "var(--s-built)" : "var(--muted)"}">${made ? "✓ made" : r.file ? "✗ file missing: " + esc(r.file) : "not made yet"}</div>`;
+  if (made && r.kind === "image") h += `<img class="thumb" src="../${esc(r.file)}" alt="">`;
+  if (full && r.body) h += `<pre class="prompt" onclick="event.stopPropagation()">${esc(r.body)}</pre><div><button class="btn" data-copy="${esc(r.id)}">Copy prompt</button></div>`;
+  return h;
+}
+
+// ---------- tabs ----------
+const TABS = [
+  { key: "overview", label: "Overview", render: renderOverview },
+  { key: "premise", label: "Premise", count: () => ofType("premise").filter(active).length, render: renderPremise },
+  { key: "structure", label: "Structure", count: () => ofType("beat").filter(active).length, render: renderStructure },
+  { key: "puzzles", label: "Puzzles", count: () => ofType("puzzle").filter(active).length, render: renderPuzzles },
+  { key: "props", label: "Props", count: () => ofType("prop").filter(active).length, render: () => section("prop", "Props") },
+  { key: "questions", label: "Questions", count: () => ofType("question").filter(r => active(r) && r.status !== "answered").length, render: renderQuestions },
+  { key: "decisions", label: "Decisions", count: () => decisions().length, render: renderDecisions },
+  { key: "parked", label: "Parked", count: () => R.filter(r => !active(r)).length, render: renderParked },
+  { key: "assets", label: "Assets", count: () => ofType("asset").filter(active).length, render: renderAssets },
+];
+const TYPE_TAB = { premise: "premise", beat: "structure", puzzle: "puzzles", prop: "props", question: "questions", asset: "assets" };
+const TYPE_NAME = { premise: "Premise", beat: BEAT + "s", puzzle: "Puzzles", prop: "Props", question: "Questions", asset: "Assets" };
+const decisions = () => R.filter(r => ["decided", "built"].includes(r.status) && !superseded(r)).sort(byTouched);
+
+function section(type, title) {
+  return `<h2>${esc(title)}</h2>${parkedNote(type)}${grid(vis(ofType(type).filter(active)), EXTRA[type])}`;
+}
+
+function renderOverview() {
+  if (query) {
+    const hits = vis(R);
+    return `<h2>Search results <span class="n">${hits.length}</span></h2>${grid(hits, r => EXTRA[r.type]?.(r) || "")}`;
+  }
+  let h = "";
+  if (D.warnings.length) {
+    h += `<h2>Problems to fix <span class="n">${D.warnings.length}</span></h2><div class="warnbox"><ul>${D.warnings.map(w =>
+      `<li><code>${esc(w.file)}</code> — ${esc(w.msg)}</li>`).join("")}</ul></div>`;
+  }
+  h += `<h2>Progress</h2><div class="stats">`;
+  for (const t of Object.keys(D.types)) {
+    const list = ofType(t).filter(r => !superseded(r));
+    const counts = {};
+    for (const r of list) counts[r.status] = (counts[r.status] || 0) + 1;
+    const keys = STATUS_ORDER.filter(s => counts[s]);
+    const done = t === "question" ? (counts.answered || 0) : (counts.built || 0) + (counts.decided || 0);
+    h += `<a class="stat" href="#${TYPE_TAB[t]}"><div class="big">${list.length}</div><div class="lab">${esc(TYPE_NAME[t])}${list.length ? ` · ${done} ${t === "question" ? "answered" : "decided or built"}` : ""}</div>
+      <div class="bar">${keys.map(s => `<span style="width:${counts[s] / list.length * 100}%;background:${sColor(s)}" title="${s}: ${counts[s]}"></span>`).join("")}</div>
+      <div class="legend">${keys.map(s => `<span><i style="background:${sColor(s)}"></i>${s} ${counts[s]}</span>`).join("")}</div></a>`;
+  }
+  h += `</div><div class="cols"><div>`;
+  const open = ofType("question").filter(r => r.status === "open" && !superseded(r)).sort(byTouched);
+  h += `<h2>Open questions <span class="n">${open.length}</span></h2>` + rows(open);
+  const stale = R.filter(r => r.stale).sort((a, b) => b.ageDays - a.ageDays);
+  h += `<h2>Stale <span class="n">${stale.length} · idea or candidate, untouched for over ${D.config.staleDays} days</span></h2>` + rows(stale, r => `${r.ageDays}d`);
+  h += `</div><div><h2>Recent changes</h2>`;
+  const ch = D.changes.slice(0, 10);
+  h += ch.length ? `<div class="rows">${ch.map(c => `<div class="row static"><span class="when">${c.uncommitted ? "now" : esc(c.date)}</span>
+      <span class="grow">${c.uncommitted ? "<i>Uncommitted edits</i>" : esc(c.subject)}<div class="refs" style="margin-top:3px">${c.ids.map(refChip).join("")}</div></span></div>`).join("")}</div>`
+    : `<div class="empty">No history yet.</div>`;
+  return h + `</div></div>`;
+}
+function rows(list, when = r => r.touched) {
+  if (!list.length) return `<div class="empty">None.</div>`;
+  return `<div class="rows">${list.map(r => `<div class="row" data-id="${esc(r.id)}"><span class="when">${esc(when(r))}</span>
+    <span class="grow"><span class="rid">${esc(r.id)}</span> ${esc(r.title)}</span>${pill(r.status)}</div>`).join("")}</div>`;
+}
+
+function renderPremise() {
+  const list = vis(ofType("premise").filter(active));
+  const order = ["sender", "player goal", "story", "tone", "ending", "other"];
+  const groups = {};
+  for (const r of list) (groups[(r.aspect || "other").toLowerCase()] ||= []).push(r);
+  const keys = Object.keys(groups).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  if (!keys.length) return `<h2>Premise</h2>${parkedNote("premise")}<div class="empty">Nothing here yet.</div>`;
+  return parkedNote("premise") + keys.map(k => `<h2>${esc(k[0].toUpperCase() + k.slice(1))}</h2>${grid(groups[k], r => "")}`).join("");
+}
+
+function renderStructure() {
+  const beats = vis(ofType("beat").filter(active)).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  let h = `<h2>${esc(BEAT)}s <span class="n">in story order</span></h2>${parkedNote("beat")}`;
+  if (!beats.length) h += `<div class="empty">No ${esc(BEAT.toLowerCase())}s yet.</div>`;
+  for (const b of beats) {
+    const pz = backOf(b.id, "beat").filter(active);
+    h += `<section class="beat${b.stale ? " is-stale" : ""}"><div class="beat-h" data-id="${esc(b.id)}"><span class="ord">${esc(b.order ?? "?")}</span>
+      <h3>${esc(b.label ? b.label + " — " : "")}${esc(b.title)}</h3><span class="rid">${esc(b.id)}</span>${pill(b.status)}${b.stale ? '<span class="flag">stale</span>' : ""}</div>
+      ${b.reveals ? `<div class="reveals">Reveals: ${esc(b.reveals)}</div>` : ""}
+      ${pz.length ? `<div class="grid">${pz.map(p => card(p, EXTRA.puzzle(p))).join("")}</div>` : `<div class="reveals"><i>No puzzles attached.</i></div>`}</section>`;
+  }
+  const loose = vis(ofType("puzzle").filter(r => active(r) && !byId[r.beat]));
+  if (loose.length) h += `<h2>Puzzles not attached to a ${esc(BEAT.toLowerCase())} <span class="n">${loose.length}</span></h2>${grid(loose, EXTRA.puzzle)}`;
+  return h;
+}
+
+const filt = { status: "", beat: "" };
+function renderPuzzles() {
+  const all = ofType("puzzle").filter(active);
+  const beats = ofType("beat").filter(active).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const list = vis(all).filter(r => (!filt.status || r.status === filt.status) && (!filt.beat || (filt.beat === "-" ? !r.beat : r.beat === filt.beat)));
+  const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`;
+  return `<h2>Puzzles <span class="n">${list.length} of ${all.length}</span></h2>${parkedNote("puzzle")}
+    <div class="filters">Status <select data-filt="status">${opt("", "all", filt.status)}${["idea", "candidate", "decided", "built"].map(s => opt(s, s, filt.status)).join("")}</select>
+    ${esc(BEAT)} <select data-filt="beat">${opt("", "all", filt.beat)}${beats.map(b => opt(b.id, `${b.order ?? "?"}. ${b.title}`, filt.beat)).join("")}${opt("-", "none", filt.beat)}</select></div>
+    ${grid(list, EXTRA.puzzle)}`;
+}
+
+function renderQuestions() {
+  const q = vis(ofType("question").filter(active));
+  const open = q.filter(r => r.status !== "answered").sort(byTouched), done = q.filter(r => r.status === "answered").sort(byTouched);
+  return `<h2>Open <span class="n">${open.length}</span></h2>${parkedNote("question")}${grid(open, EXTRA.question)}
+    <h2>Answered <span class="n">${done.length}</span></h2>${grid(done, EXTRA.question)}`;
+}
+
+function renderDecisions() {
+  const list = vis(decisions());
+  return `<h2>Decided and built <span class="n">${list.length} · newest first</span></h2>
+    <div class="note">Sorted by the date the record was last touched.</div>${list.length ? `<div class="rows">${list.map(r => `<div class="row" data-id="${esc(r.id)}">
+    <span class="when">${esc(r.touched)}</span><span class="grow"><span class="rid">${esc(r.id)}</span> ${esc(r.title)} <span class="kv">· ${esc(TYPE_NAME[r.type] || r.type)}</span></span>${pill(r.status)}</div>`).join("")}</div>` : `<div class="empty">Nothing decided yet.</div>`}`;
+}
+
+function renderParked() {
+  const parked = vis(R.filter(r => r.status === "parked" && !superseded(r))).sort(byTouched);
+  const sup = vis(R.filter(superseded)).sort(byTouched);
+  return `<h2>Parked <span class="n">${parked.length}</span></h2>${grid(parked, r => kv("type", TYPE_NAME[r.type]))}
+    <h2>Superseded <span class="n">${sup.length}</span></h2>${grid(sup, r => kv("type", TYPE_NAME[r.type]) + refs("replaced by", [r.superseded_by]))}`;
+}
+
+function renderAssets() {
+  const list = vis(ofType("asset").filter(active));
+  const todo = list.filter(r => !(r.file && r.fileExists)), made = list.filter(r => r.file && r.fileExists);
+  const ex = r => assetExtra(r, true);
+  return `<h2>Not made yet <span class="n">${todo.length}</span></h2>${parkedNote("asset")}${grid(todo, ex)}<h2>Made <span class="n">${made.length}</span></h2>${grid(made, ex)}`;
+}
+
+// ---------- detail drawer ----------
+const HIDE = new Set(["id", "title", "type", "status", "body", "path", "touched", "ageDays", "dirty", "stale", "history", "fileExists"]);
+function openDetail(id) {
+  const r = byId[id];
+  if (!r) return;
+  let h = `<button class="btn close" data-close>Close ✕</button>
+    <div class="top"><span class="rid">${esc(r.id)}</span>${pill(r.status)}<span class="kv">${esc(TYPE_NAME[r.type] || r.type)}</span>${r.stale ? '<span class="flag">stale</span>' : ""}${r.dirty ? '<span class="flag dirty">uncommitted</span>' : ""}</div>
+    <h2>${esc(r.title)}</h2>`;
+  if (superseded(r)) h += `<div class="warnbox" style="margin-bottom:12px">Superseded by ${refChip(r.superseded_by)}</div>`;
+  const fields = Object.entries(r).filter(([k, v]) => !HIDE.has(k) && !(v == null || v === "" || (Array.isArray(v) && !v.length)));
+  if (fields.length) {
+    h += `<dl class="fields">${fields.map(([k, v]) => {
+      let val = REF.includes(k) ? `<div class="refs">${asList(v).map(refChip).join("")}</div>`
+        : k === "answer" && r.type === "puzzle" ? `<span class="spoiler" title="Click to reveal">${esc(v)}</span>`
+        : k === "difficulty" ? `${esc(dots(v))} (${esc(v)})`
+        : esc(Array.isArray(v) ? v.join(", ") : v);
+      return `<dt>${esc(k.replace(/_/g, " "))}</dt><dd>${val}</dd>`;
+    }).join("")}</dl>`;
+  }
+  if (r.type === "beat") h += `<div class="sec">Puzzles in this ${esc(BEAT.toLowerCase())}</div>` + (refs("", backOf(r.id, "beat").map(x => x.id)) || `<div class="empty">None.</div>`);
+  if (r.type === "asset") h += `<div class="sec">Prompt</div>${r.body ? `<pre class="prompt">${esc(r.body)}</pre><p><button class="btn" data-copy="${esc(r.id)}">Copy prompt</button></p>` : `<div class="empty">No prompt yet.</div>`}`
+    + (r.file && r.fileExists && r.kind === "image" ? `<p><img class="thumb" style="max-height:320px" src="../${esc(r.file)}" alt=""></p>` : "");
+  else if (r.body) h += `<div class="sec">Notes</div><div class="md">${md(r.body)}</div>`;
+  const bl = back[r.id] || [];
+  if (bl.length) {
+    const groups = {};
+    for (const b of bl) (groups[b.field] ||= []).push(b.from);
+    const lbl = { links: "linked from", superseded_by: "replaces", beat: "puzzles in this beat", props: "used by puzzles", needs: "needed by", about: "questions about this", for: "assets for this" };
+    h += `<div class="sec">Referenced by</div>` + Object.entries(groups).map(([f, ids]) => refs(lbl[f] || f, ids)).join("");
+  }
+  h += `<div class="sec">History</div>`;
+  h += r.history.length ? `<div class="rows">${r.dirty ? `<div class="row static"><span class="when">now</span><span class="grow"><i>uncommitted edits</i></span></div>` : ""}${r.history.map(c =>
+    `<div class="row static"><span class="when">${esc(c.date)}</span><span class="grow">${esc(c.subject)}</span></div>`).join("")}</div>` : `<div class="empty">Not committed yet.</div>`;
+  h += `<p class="path">${esc(r.path)}</p>`;
+  const dr = $("#drawer");
+  dr.innerHTML = h; dr.hidden = false; $("#scrim").hidden = false; dr.scrollTop = 0;
+}
+function closeDetail() { $("#drawer").hidden = true; $("#scrim").hidden = true; }
+
+// ---------- tiny markdown ----------
+function inline(s) {
+  const codes = [];
+  s = esc(s).replace(/`([^`]+)`/g, (m, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => /^(https?:|#)/.test(u) ? `<a href="${u}" target="_blank" rel="noopener">${t}</a>` : `<a href="../${u}" target="_blank">${t}</a>`)
+    .replace(/(^|[^\w-])((?:PR|ST|PZ|PP|Q|AS)-\d{3,})\b/g, (m, pre, id) => pre + refChip(id));
+  return s.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codes[i]}</code>`);
+}
+function md(src) {
+  let html = "", para = [], list = null, code = null;
+  const flushP = () => { if (para.length) { html += `<p>${inline(para.join(" "))}</p>`; para = []; } };
+  const flushL = () => { if (list) { html += `<${list.t}>${list.items.map(i => `<li>${inline(i)}</li>`).join("")}</${list.t}>`; list = null; } };
+  for (const ln of src.replace(/\r/g, "").split("\n")) {
+    if (code) { if (/^```/.test(ln)) { html += `<pre><code>${esc(code.join("\n"))}</code></pre>`; code = null; } else code.push(ln); continue; }
+    let m;
+    if (/^```/.test(ln)) { flushP(); flushL(); code = []; continue; }
+    if ((m = ln.match(/^(#{1,4})\s+(.*)/))) { flushP(); flushL(); const n = Math.min(m[1].length + 2, 6); html += `<h${n}>${inline(m[2])}</h${n}>`; continue; }
+    if ((m = ln.match(/^\s*([-*]|\d+\.)\s+(.*)/))) {
+      flushP(); const t = /\d/.test(m[1]) ? "ol" : "ul";
+      if (!list || list.t !== t) { flushL(); list = { t, items: [] }; }
+      list.items.push(m[2]); continue;
+    }
+    if ((m = ln.match(/^>\s?(.*)/))) { flushP(); flushL(); html += `<blockquote>${inline(m[1])}</blockquote>`; continue; }
+    if (!ln.trim()) { flushP(); flushL(); continue; }
+    if (list && /^\s{2,}/.test(ln)) { list.items[list.items.length - 1] += " " + ln.trim(); continue; }
+    flushL(); para.push(ln.trim());
+  }
+  if (code) html += `<pre><code>${esc(code.join("\n"))}</code></pre>`;
+  flushP(); flushL();
+  return html;
+}
+
+// ---------- routing & events ----------
+function route() {
+  const [tab, id] = decodeURIComponent(location.hash.slice(1)).split("/");
+  const t = TABS.find(x => x.key === tab) || TABS[0];
+  $("#tabs").innerHTML = TABS.map(x => `<a href="#${x.key}" class="${x === t ? "on" : ""}">${x.label}${x.count ? `<span class="n">${x.count()}</span>` : ""}</a>`).join("");
+  $("#view").innerHTML = t.render();
+  if (id) openDetail(id); else closeDetail();
+  return t;
+}
+let current = TABS[0];
+function show(id) { location.hash = `${current.key}/${id}`; }
+
+document.addEventListener("click", e => {
+  const copy = e.target.closest("[data-copy]");
+  if (copy) {
+    const r = byId[copy.dataset.copy];
+    navigator.clipboard?.writeText(r.body).then(() => { copy.textContent = "Copied ✓"; setTimeout(() => copy.textContent = "Copy prompt", 1500); });
+    e.stopPropagation(); return;
+  }
+  const sp = e.target.closest(".spoiler");
+  if (sp) { sp.classList.toggle("shown"); return; }
+  if (e.target.closest("[data-close]") || e.target.id === "scrim") { location.hash = current.key; return; }
+  const el = e.target.closest("[data-id]");
+  if (el) show(el.dataset.id);
+});
+document.addEventListener("change", e => {
+  const f = e.target.dataset.filt;
+  if (f) { filt[f] = e.target.value; $("#view").innerHTML = current.render(); }
+});
+$("#q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); $("#view").innerHTML = current.render(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "/" && document.activeElement !== $("#q")) { e.preventDefault(); $("#q").focus(); }
+  if (e.key === "Escape") { if (!$("#drawer").hidden) location.hash = current.key; else if (query) { $("#q").value = ""; query = ""; $("#view").innerHTML = current.render(); } }
+});
+window.addEventListener("hashchange", () => { current = route(); });
+
+$("#proj").textContent = D.config.name;
+document.title = D.config.name + " — design";
+$("#sub").textContent = `${R.length} records · built ${D.builtAt}` + (D.warnings.length ? ` · ${D.warnings.length} problem(s), see Overview` : "");
+current = route();
+</script>
+</body>
+</html>

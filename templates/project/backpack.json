@@ -1,0 +1,5 @@
+{
+  "name": "{{name}}",
+  "beatLabel": "Structure beat",
+  "staleDays": 30
+}
