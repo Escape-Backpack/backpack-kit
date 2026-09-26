@@ -240,7 +240,7 @@ function assetExtra(r, full) {
   const made = r.file && r.fileExists;
   let h = kv("kind", [r.kind, r.tool].filter(Boolean).join(" · ")) + (r.for ? refs("for", [r.for]) : "");
   h += `<div class="made" style="color:${made ? "var(--s-built)" : "var(--muted)"}">${made ? "✓ made" : r.file ? "✗ file missing: " + esc(r.file) : "not made yet"}</div>`;
-  if (made && r.kind === "image") h += `<img class="thumb" src="../${esc(r.file)}" alt="">`;
+  if (made && r.kind === "image") h += `<img class="thumb" src="files/${esc(r.file)}" alt="">`;
   if (full && r.body) h += `<pre class="prompt" onclick="event.stopPropagation()">${esc(r.body)}</pre><div><button class="btn" data-copy="${esc(r.id)}">Copy prompt</button></div>`;
   return h;
 }
@@ -394,7 +394,7 @@ function openDetail(id) {
   }
   if (r.type === "beat") h += `<div class="sec">Puzzles in this ${esc(BEAT.toLowerCase())}</div>` + (refs("", backOf(r.id, "beat").map(x => x.id)) || `<div class="empty">None.</div>`);
   if (r.type === "asset") h += `<div class="sec">Prompt</div>${r.body ? `<pre class="prompt">${esc(r.body)}</pre><p><button class="btn" data-copy="${esc(r.id)}">Copy prompt</button></p>` : `<div class="empty">No prompt yet.</div>`}`
-    + (r.file && r.fileExists && r.kind === "image" ? `<p><img class="thumb" style="max-height:320px" src="../${esc(r.file)}" alt=""></p>` : "");
+    + (r.file && r.fileExists && r.kind === "image" ? `<p><img class="thumb" style="max-height:320px" src="files/${esc(r.file)}" alt=""></p>` : "");
   else if (r.body) h += `<div class="sec">Notes</div><div class="md">${md(r.body)}</div>`;
   const bl = back[r.id] || [];
   if (bl.length) {

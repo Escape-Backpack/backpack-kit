@@ -30,6 +30,17 @@ Requires Python 3.9+ and git. There are no other dependencies.
 `site/` is generated and git-ignored. You can also open `site/index.html`
 directly, without the server.
 
+## Online page and remote editing
+Each backpack repo has `.github/workflows/pages.yml`. On every push to main (and
+daily) it builds the viewer and publishes it to
+`https://escape-backpack.github.io/<repo>/`. The repos are public, so the page
+and the records (answers included) are visible to anyone with the link.
+
+To edit from anywhere, open a Claude session on the backpack repo at
+claude.ai/code. `AGENTS.md` tells it to clone the kit if it's missing.
+A change to the kit itself shows up online at the next push to a backpack, or
+after the daily rebuild.
+
 Record types for `new`: `premise`, `beat`, `puzzle`, `prop`, `question`, `asset`.
 
 ## Start a new backpack
@@ -37,8 +48,10 @@ Record types for `new`: `premise`, `beat`, `puzzle`, `prop`, `question`, `asset`
 python backpack-kit/kit.py init Celtic --name "Celtic"
 ```
 This creates `backpack.json`, `AGENTS.md`, `CLAUDE.md`, `HANDOFF.md`,
-`.gitignore`, `.gitattributes` and the empty `records/` folders. Existing files
-are kept. Then move the seed notes from `seeds/` into records.
+`.gitignore`, `.gitattributes`, the Pages workflow and the empty `records/` folders.
+Existing files are kept. Then move the seed notes from `seeds/` into records.
+After the first push, turn on Pages:
+`gh api -X POST repos/Escape-Backpack/<repo>/pages -f build_type=workflow`
 
 ## What's in here
 | Path | What it is |

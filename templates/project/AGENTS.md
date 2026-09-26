@@ -25,5 +25,11 @@ one Markdown file per record, rendered by the shared viewer from
   Don't delete it.
 - Run `python ../backpack-kit/kit.py check` after editing. It must report no problems.
 
+## Kit location
+The kit is expected next to this repo, at `../backpack-kit`. If it's missing
+(for example in a Claude cloud session), fetch it first:
+`git clone https://github.com/Escape-Backpack/backpack-kit ../backpack-kit`
+
 ## Preview
-`python ../backpack-kit/kit.py serve`, then open http://localhost:8000/site/
+- Online: https://escape-backpack.github.io/{{repo}}/ (rebuilt about a minute after every push to main)
+- Local: `python ../backpack-kit/kit.py serve`, then open http://localhost:8000/site/

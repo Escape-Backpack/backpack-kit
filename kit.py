@@ -285,6 +285,14 @@ def cmd_build(project, quiet=False):
     site = os.path.join(project, "site")
     os.makedirs(site, exist_ok=True)
     shutil.copyfile(os.path.join(KIT, "viewer", "index.html"), os.path.join(site, "index.html"))
+    # Copy made asset files into site/files/ so the page works when only site/ is published.
+    files_dir = os.path.join(site, "files")
+    shutil.rmtree(files_dir, ignore_errors=True)
+    for r in data["records"]:
+        if r.get("fileExists"):
+            dest = os.path.join(files_dir, r["file"])
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copyfile(os.path.join(project, r["file"]), dest)
     payload = json.dumps(data, ensure_ascii=False, indent=1).replace("</", "<\\/")
     with open(os.path.join(site, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.BACKPACK = " + payload + ";\n")
@@ -355,7 +363,7 @@ def cmd_init(target, name):
                 continue
             os.makedirs(os.path.dirname(d), exist_ok=True)
             with open(s, encoding="utf-8") as f:
-                text = f.read().replace("{{name}}", name)
+                text = f.read().replace("{{name}}", name).replace("{{repo}}", os.path.basename(target))
             with open(d, "w", encoding="utf-8", newline="\n") as f:
                 f.write(text)
             print(f"  created {rel}")
