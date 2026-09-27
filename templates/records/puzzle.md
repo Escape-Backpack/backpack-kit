@@ -17,6 +17,8 @@ difficulty:
 # Lock it opens: 3-digit | 4-digit | 4-letter | 3-digit-colour (blank if none)
 lock:
 answer:
+# What players call this lock on the hint page, e.g. "The luggage tag" (spoiler-free)
+hint_title:
 # Any related record IDs, e.g. [PZ-002, Q-004]
 links: []
 # Set to an ID when this record is replaced. It then moves to the Parked tab.
@@ -30,3 +32,5 @@ tags: []
 
 ## Hints
 1.
+
+## Solution

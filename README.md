@@ -31,16 +31,24 @@ Requires Python 3.9+ and git. There are no other dependencies.
 `site/` is generated and git-ignored. You can also open `site/index.html`
 directly, without the server.
 
-## Online page and remote editing
-Each backpack repo has `.github/workflows/pages.yml`. On every push to main (and
-daily) it builds the viewer and publishes it to
-`https://escape-backpack.github.io/<repo>/`. The repos are public, so the page
-and the records (answers included) are visible to anyone with the link.
+## Online pages and remote editing
+Hosting is moving to Cloudflare Pages on escapepack.ca. The files stay on GitHub.
+
+| Address | Built from | Who sees it |
+|---|---|---|
+| `escapepack.ca` | `escapepack-site` (public site, no build step) | everyone |
+| `<backpack>-design.escapepack.ca` | the backpack repo, via `cloudflare-build.sh` | only people allowed by Cloudflare Access |
+| `<backpack>-design.escapepack.ca/hints/` | the same build | everyone (Access skips this path) |
+| `escapepack.ca/<backpack>/hints` | a redirect in `escapepack-site/_redirects` | everyone: this is the printed QR link |
+
+Cloudflare Pages settings for a backpack: build command `bash cloudflare-build.sh`,
+output directory `site`. The script downloads this kit (which must stay public).
+
+Until the migration is done, `.github/workflows/pages.yml` still publishes each
+backpack to `https://escape-backpack.github.io/<repo>/`.
 
 To edit from anywhere, open a Claude session on the backpack repo at
 claude.ai/code. `AGENTS.md` tells it to clone the kit if it's missing.
-A change to the kit itself shows up online at the next push to a backpack, or
-after the daily rebuild.
 
 Record types for `new`: `premise`, `beat`, `puzzle`, `prop`, `question`, `asset`.
 
@@ -49,7 +57,7 @@ Record types for `new`: `premise`, `beat`, `puzzle`, `prop`, `question`, `asset`
 python backpack-kit/kit.py init Celtic --name "Celtic"
 ```
 This creates `backpack.json`, `AGENTS.md`, `CLAUDE.md`, `HANDOFF.md`,
-`.gitignore`, `.gitattributes`, the Pages workflow and the empty `records/` folders.
+`.gitignore`, `.gitattributes`, `cloudflare-build.sh`, the Pages workflow and the empty `records/` folders.
 Existing files are kept. Then move the seed notes from `seeds/` into records.
 After the first push, turn on Pages:
 `gh api -X POST repos/Escape-Backpack/<repo>/pages -f build_type=workflow`
@@ -58,7 +66,7 @@ After the first push, turn on Pages:
 | Path | What it is |
 |---|---|
 | `kit.py` | Build, serve, check, new, init |
-| `viewer/` | The shared pages, copied into each project's `site/` on build: `index.html` (design board), `play.html` (play-test), plus `style.css` and `common.js` |
+| `viewer/` | The shared pages, copied into each project's `site/` on build: `index.html` (design board), `play.html` (play-test), `hints/` (public hint page), plus `style.css` and `common.js` |
 | `templates/records/` | One template per record type |
 | `templates/project/` | Files `init` copies into a new backpack |
 | `docs/RECORDS.md` | Record format reference |
@@ -68,4 +76,4 @@ After the first push, turn on Pages:
 ## Planned
 - v2: a puzzle flow chart generated from the puzzles' `needs:` fields.
 - Play-test: a feedback box for testers.
-- A hint page generated from each puzzle's `## Hints` (for the QR code on the luggage tag).
+- Rebuild backpacks automatically when the kit changes.

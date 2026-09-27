@@ -284,6 +284,85 @@ def print_warnings(warnings):
         print(f"  ! {w['file']}: {w['msg']}")
 
 
+def md_section(body, heading):
+    """Text of a '## Heading' section of a record body, up to the next ## heading."""
+    out = None
+    for ln in (body or "").split("\n"):
+        m = re.match(r"^##\s+(.*)", ln)
+        if m:
+            if out is not None:
+                break
+            if m.group(1).strip().lower() == heading.lower():
+                out = []
+            continue
+        if out is not None:
+            out.append(ln)
+    return "\n".join(out).strip() if out else ""
+
+
+def list_items(text):
+    items = []
+    for ln in text.split("\n"):
+        m = re.match(r"^\s*(?:[-*]|\d+\.)\s*(.*)$", ln)
+        if m:
+            if m.group(1).strip():
+                items.append(m.group(1).strip())
+        elif ln.strip() and items:
+            items[-1] += " " + ln.strip()
+    return items
+
+
+def play_order(puzzles, props):
+    """Puzzles in the order a player can open them (found_in / needs / props); unreachable ones last."""
+    ids = {p["id"] for p in puzzles}
+    prop_ids = {x["id"] for x in props}
+    done, hand = [], {x["id"] for x in props if x.get("found_in") == "start"}
+    grew = True
+    while grew:
+        grew = False
+        for p in sorted(puzzles, key=lambda p: id_sort_key(p["id"])):
+            if p["id"] in done:
+                continue
+            if (all(n in done or n not in ids for n in as_list(p.get("needs")))
+                    and all(x in hand or x not in prop_ids for x in as_list(p.get("props")))):
+                done.append(p["id"])
+                hand |= {x["id"] for x in props if x.get("found_in") == p["id"]}
+                grew = True
+                break
+    order = {pid: i for i, pid in enumerate(done)}
+    return sorted(puzzles, key=lambda p: (order.get(p["id"], 10_000), id_sort_key(p["id"])))
+
+
+def build_hints(data, site, viewer):
+    """Write site/hints/index.html: a self-contained, public, player-facing hint page.
+    It carries only each lock's hint_title, lock type, hints and solution: no design notes."""
+    playable = ("candidate", "decided", "built")
+    live = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
+    puzzles = [r for r in live if r["type"] == "puzzle"]
+    props = [r for r in live if r["type"] == "prop"]
+    locks = [{
+        "title": p.get("hint_title") or "",
+        "lock": p.get("lock") or "",
+        "status": p["status"],
+        "hints": list_items(md_section(p["body"], "Hints")),
+        "answer": p.get("answer") or "",
+        "solution": md_section(p["body"], "Solution"),
+    } for p in play_order(puzzles, props)]
+    payload = {"name": data["config"]["name"], "builtAt": data["builtAt"], "locks": locks}
+
+    def read(name):
+        with open(os.path.join(viewer, name), encoding="utf-8") as f:
+            return f.read()
+    html = read(os.path.join("hints", "index.html"))
+    html = html.replace('<link rel="stylesheet" href="../style.css">', "<style>\n" + read("style.css") + "</style>")
+    html = html.replace('<script src="../common.js"></script>', "<script>\n" + read("common.js") + "</script>")
+    data_js = "window.HINTS = " + json.dumps(payload, ensure_ascii=False).replace("</", "<\\/") + ";"
+    html = html.replace('<script src="hints-data.js"></script>', "<script>" + data_js + "</script>")
+    os.makedirs(os.path.join(site, "hints"), exist_ok=True)
+    with open(os.path.join(site, "hints", "index.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
 def cmd_build(project, quiet=False):
     data = load(project)
     site = os.path.join(project, "site")
@@ -303,6 +382,7 @@ def cmd_build(project, quiet=False):
     payload = json.dumps(data, ensure_ascii=False, indent=1).replace("</", "<\\/")
     with open(os.path.join(site, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.BACKPACK = " + payload + ";\n")
+    build_hints(data, site, viewer)
     if not quiet:
         print(f"Built {len(data['records'])} records -> {os.path.relpath(site)}{os.sep}index.html")
         if data["warnings"]:

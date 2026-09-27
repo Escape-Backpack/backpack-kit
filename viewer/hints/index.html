@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Hint companion</title>
+<!-- Player-facing hint page from backpack-kit. kit.py build inlines the style, helpers and data,
+     so this one file is all a player's phone needs. Only hint text and solutions are included. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+main { max-width: 760px; }
+.bar-top { position: sticky; top: 0; z-index: 5; background: rgba(22,42,33,.94); backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px); border-bottom: 2px solid var(--rust); }
+.bar-top .in { max-width: 760px; margin: 0 auto; padding: 10px clamp(16px, 4vw, 40px); display: flex; gap: 12px;
+  align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.clock { font: 1.6rem/1 var(--mono); color: var(--brass); letter-spacing: .06em; }
+.team { font: 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--cream-3); }
+.start { background: var(--forest-2); border: 1px solid var(--line); border-radius: 2px; padding: 26px; margin-top: 10px; }
+.start input { width: 100%; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 3px; margin: 10px 0 16px;
+  background: var(--forest-deep); color: var(--cream); font: 17px var(--sans); outline: none; }
+.start input:focus { border-color: var(--brass); }
+.btn.big { font-size: 12px; padding: 12px 20px; background: var(--rust); }
+.btn.big:hover { background: var(--rust-2); }
+.lockcard { background: var(--forest-2); border: 1px solid var(--line); border-radius: 2px; padding: 18px 20px; margin-bottom: 14px; }
+.lockcard h3 { margin: 0 0 4px; font-size: 1.35rem; }
+.lockcard .kv { margin-bottom: 12px; }
+.levels { display: flex; flex-direction: column; gap: 8px; }
+.level { border-left: 2px solid var(--brass); padding: 6px 0 6px 12px; font-size: 15.5px; }
+.level b { font: 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); display: block; margin-bottom: 2px; }
+.level.sol { border-left-color: var(--s-built); }
+.level.sol b { color: var(--s-built); }
+.code { font: 1.4rem var(--mono); letter-spacing: .14em; color: var(--brass-2); }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.test { border: 1px dashed var(--stale); color: var(--stale); padding: 8px 12px; font: 12px var(--mono); letter-spacing: .06em; margin-bottom: 14px; }
+.cand { font: 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stale); border: 1px dashed var(--stale); padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
+#done { position: fixed; inset: 0; z-index: 30; background: rgba(10,20,15,.9); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#done[hidden] { display: none; }
+#done .inner { background: var(--forest-2); border: 1px solid var(--brass); padding: 32px; max-width: 460px; width: 100%; text-align: center; }
+#done .clock { font-size: 2.4rem; margin: 10px 0 18px; }
+</style>
+</head>
+<body>
+<div class="bar-top" id="bar" hidden><div class="in"><div><div class="clock" id="clock">00:00:00</div><div class="team" id="teamlbl"></div></div>
+  <div class="btnrow" style="margin:0"><button class="btn" id="pause">Pause</button><button class="btn" id="finish">Done!</button></div></div></div>
+<header><div><div class="eyebrow">Hint companion</div><h1 id="proj">Backpack</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
+<main id="view"></main>
+<div id="done" hidden></div>
+<script src="../common.js"></script>
+<script src="hints-data.js"></script>
+<script>
+"use strict";
+const H = window.HINTS;
+const $ = s => document.querySelector(s);
+const TEST = new URLSearchParams(location.search).has("all");
+const LOCKS = H.locks.filter(l => TEST || l.status !== "candidate");
+const KEY = "bp-hints:" + H.name;
+
+let S = { team: "", started: 0, paused: 0, pausedAt: 0, shown: {}, finished: 0 };
+try { S = Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+const elapsed = () => {
+  if (!S.started) return 0;
+  const end = S.finished || S.pausedAt || Date.now();
+  return Math.max(0, end - S.started - S.paused);
+};
+const fmt = ms => { const t = Math.floor(ms / 1000); return [t / 3600, t / 60 % 60, t % 60].map(n => String(Math.floor(n)).padStart(2, "0")).join(":"); };
+const lockName = l => l.lock ? `${l.lock} lock` : "Lock";
+
+function render() {
+  $("#bar").hidden = !S.started;
+  if (!S.started) {
+    $("#view").innerHTML = `<div class="start"><h2 style="margin-top:0">Ready to start?</h2>
+      <label class="kv" for="team">Team name</label><input id="team" autocomplete="off" placeholder="Your team">
+      <button class="btn big" id="go">Start the timer</button></div>`;
+    return;
+  }
+  $("#teamlbl").textContent = S.team || "";
+  $("#pause").textContent = S.pausedAt ? "Resume" : "Pause";
+  let h = TEST ? `<div class="test">Test mode (?all): candidate locks are included.</div>` : "";
+  h += `<p class="note">Stuck? Open one hint at a time for the lock you're working on. The last step shows the solution.</p>`;
+  if (!LOCKS.length) h += `<div class="empty">No locks are ready yet.</div>`;
+  LOCKS.forEach((l, i) => {
+    const n = S.shown[i] || 0, total = l.hints.length + 1;
+    const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")
+      + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
+    const next = n < l.hints.length ? `Hint ${n + 1}` : n < total ? "Show the solution" : "";
+    h += `<section class="lockcard"><h3>${i + 1}. ${esc(l.title || lockName(l))}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
+      ${l.title ? `<div class="kv">${esc(lockName(l))}</div>` : ""}<div class="levels">${levels}</div>
+      ${next ? `<div class="btnrow"><button class="btn" data-next="${i}">${next}</button></div>` : ""}</section>`;
+  });
+  $("#view").innerHTML = h;
+}
+function tick() { $("#clock").textContent = fmt(elapsed()); }
+
+document.addEventListener("click", e => {
+  if (e.target.id === "go") {
+    S = { team: $("#team").value.trim(), started: Date.now(), paused: 0, pausedAt: 0, shown: {}, finished: 0 };
+    save(); render(); tick(); return;
+  }
+  const nx = e.target.closest("[data-next]");
+  if (nx) {
+    const i = +nx.dataset.next, l = LOCKS[i], n = S.shown[i] || 0;
+    if (n >= l.hints.length && !confirm("Show the solution for this lock?")) return;
+    S.shown[i] = n + 1; save(); render(); return;
+  }
+  if (e.target.id === "again") { S = { team: "", started: 0, paused: 0, pausedAt: 0, shown: {}, finished: 0 }; save(); $("#done").hidden = true; render(); }
+});
+$("#pause").addEventListener("click", () => {
+  if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; } else S.pausedAt = Date.now();
+  save(); render(); tick();
+});
+$("#finish").addEventListener("click", () => {
+  if (!S.finished && !confirm("Did you open the last lock? This stops the timer.")) return;
+  if (!S.finished) { if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; } S.finished = Date.now(); save(); }
+  const used = Object.values(S.shown).reduce((a, b) => a + b, 0);
+  $("#done").innerHTML = `<div class="inner"><div class="eyebrow">Adventure complete</div><h2>Congratulations${S.team ? ", " + esc(S.team) : ""}!</h2>
+    <div class="clock">${fmt(elapsed())}</div><p class="note">${used} hint${used === 1 ? "" : "s"} opened. Thank you for playing ${esc(H.name)}!</p>
+    <button class="btn big" id="again">Play again</button></div>`;
+  $("#done").hidden = false; tick();
+});
+
+$("#proj").textContent = H.name;
+document.title = H.name + " · Hint companion";
+render(); tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

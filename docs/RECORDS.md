@@ -72,6 +72,15 @@ What a prop shows: its image assets (`kind: image` with a `file`), and/or the
 "Designer checks" at the bottom lists locks that can never be opened, props the
 player never gets, and props with nothing to show.
 
+## Hint page (`hints/index.html`)
+A public, player-facing page built into `site/hints/`, one self-contained file.
+It lists the `decided` and `built` locks in play order (`?all` adds candidates), each with:
+- its `hint_title`: what players call the lock, with no spoilers (for example "The luggage tag")
+- the `## Hints` list, one hint at a time
+- the solution: `answer`, plus the `## Solution` section of the puzzle's body
+
+Nothing else from the records is included. Team name, timer and progress stay in the player's browser.
+
 ## Syntax rules (small YAML subset)
 - `key: value` on one line. Lists are `[A, B]` or `- item` lines underneath.
 - Lines starting with `#` are comments.
