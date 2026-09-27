@@ -39,7 +39,7 @@ Hosting is moving to Cloudflare Pages on escapepack.ca. The files stay on GitHub
 | `escapepack.ca` | `escapepack-site` (public site, no build step) | everyone |
 | `<backpack>-design.escapepack.ca` | the backpack repo, via `cloudflare-build.sh` | only people allowed by Cloudflare Access |
 | `<backpack>-design.escapepack.ca/hints/` | the same build | everyone (Access skips this path) |
-| `escapepack.ca/<backpack>/hints` | a redirect in `escapepack-site/_redirects` | everyone: this is the printed QR link |
+| `escapepack.ca/help/<game>/` | a redirect in `escapepack-site/_redirects` | everyone: this is the printed QR link (`/help/<game>/hints/` works too) |
 
 Cloudflare Pages settings for a backpack: build command `bash cloudflare-build.sh`,
 output directory `site`. The script downloads this kit (which must stay public).
