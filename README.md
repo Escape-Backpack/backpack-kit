@@ -68,3 +68,4 @@ After the first push, turn on Pages:
 ## Planned
 - v2: a puzzle flow chart generated from the puzzles' `needs:` fields.
 - Play-test: a feedback box for testers.
+- A hint page generated from each puzzle's `## Hints` (for the QR code on the luggage tag).
