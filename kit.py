@@ -22,6 +22,7 @@ import re
 import shutil
 import subprocess
 import sys
+from checks import readiness, flow_model
 
 KIT = os.path.dirname(os.path.abspath(__file__))
 
@@ -204,6 +205,12 @@ def load(project):
             warn(rel, rid, f"status {fields.get('status')!r} is not one of: {', '.join(allowed)}")
         if rtype == "puzzle" and fields.get("lock") and fields["lock"] not in cfg["locks"]:
             warn(rel, rid, f"lock {fields['lock']!r} is not one of: {', '.join(cfg['locks'])}")
+        if rtype == "puzzle":
+            for key, allowed_values in (("test_status", ("untested", "passed", "changes-needed")),
+                                        ("test_method", ("physical", "digital")),
+                                        ("publish_hints", ("yes", "no"))):
+                if fields.get(key) and fields[key] not in allowed_values:
+                    warn(rel, rid, f"{key} must be one of: {', '.join(allowed_values)}")
 
         history = per_file.get(rel, [])
         is_dirty = rel in dirty or not history
@@ -238,8 +245,15 @@ def load(project):
                     warn(r["path"], r["id"], f"found_in must be start or a puzzle ID, not {target}")
                 if target not in by_id:
                     warn(r["path"], r["id"], f"{field} points to unknown id {target}")
+                expected = {"beat": "beat", "props": "prop", "needs": "puzzle", "for": "prop"}.get(field)
+                if expected and target in by_id and by_id[target]["type"] != expected:
+                    warn(r["path"], r["id"], f"{field} requires a {expected} ID, not {target}")
         if r.get("superseded_by") == r["id"]:
             warn(r["path"], r["id"], "superseded_by points to itself")
+        if (r["type"] == "puzzle" and r.get("publish_hints") == "yes" and not r.get("superseded_by")
+                and r.get("status") in ("decided", "built") and hint_gaps(r)):
+            warn(r["path"], r["id"], f"publish_hints: yes but missing {', '.join(hint_gaps(r))}; "
+                                     "left off the public hint page")
 
     records.sort(key=lambda r: id_sort_key(r["id"]))
     rel_to_id = {r["path"]: r["id"] for r in records}
@@ -262,6 +276,9 @@ def load(project):
         "records": records,
         "changes": changes,
         "warnings": warnings,
+        "readiness": readiness(records),
+        "releaseReadiness": readiness(records, release=True),
+        "flow": flow_model(records),
     }
 
 
@@ -323,8 +340,8 @@ def play_order(puzzles, props):
         for p in sorted(puzzles, key=lambda p: id_sort_key(p["id"])):
             if p["id"] in done:
                 continue
-            if (all(n in done or n not in ids for n in as_list(p.get("needs")))
-                    and all(x in hand or x not in prop_ids for x in as_list(p.get("props")))):
+            if (all(n in done for n in as_list(p.get("needs")))
+                    and all(x in hand for x in as_list(p.get("props")))):
                 done.append(p["id"])
                 hand |= {x["id"] for x in props if x.get("found_in") == p["id"]}
                 grew = True
@@ -333,21 +350,36 @@ def play_order(puzzles, props):
     return sorted(puzzles, key=lambda p: (order.get(p["id"], 10_000), id_sort_key(p["id"])))
 
 
+def hint_gaps(p):
+    """What a puzzle marked publish_hints: yes still lacks for the public hint page."""
+    gaps = [label for label, ok in (
+        ("hint_title", p.get("hint_title")),
+        ("## Hints list", list_items(md_section(p.get("body", ""), "Hints"))),
+        ("## Solution", md_section(p.get("body", ""), "Solution")),
+        ("answer", not p.get("lock") or p.get("answer"))) if not ok]
+    return gaps
+
+
 def build_hints(data, site, viewer):
     """Write site/hints/index.html: a self-contained, public, player-facing hint page.
     It carries only each lock's hint_title, lock type, hints and solution: no design notes."""
-    playable = ("candidate", "decided", "built")
+    playable = ("decided", "built")
     live = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
-    puzzles = [r for r in live if r["type"] == "puzzle"]
+    # Incomplete puzzles are left off the page; load() reports them as warnings.
+    puzzles = [r for r in live if r["type"] == "puzzle" and r.get("publish_hints") == "yes"
+               and not hint_gaps(r)]
     props = [r for r in live if r["type"] == "prop"]
+    ordered = play_order([r for r in live if r["type"] == "puzzle"], props)
+    public_ids = {p["id"] for p in puzzles}
     locks = [{
+        "id": p["id"],
         "title": p.get("hint_title") or "",
         "lock": p.get("lock") or "",
         "status": p["status"],
         "hints": list_items(md_section(p["body"], "Hints")),
         "answer": p.get("answer") or "",
         "solution": md_section(p["body"], "Solution"),
-    } for p in play_order(puzzles, props)]
+    } for p in ordered if p["id"] in public_ids]
     payload = {"name": data["config"]["name"], "builtAt": data["builtAt"], "locks": locks}
 
     def read(name):
@@ -398,6 +430,18 @@ def cmd_check(project):
         print_warnings(data["warnings"])
         return 1
     print(f"OK: {len(data['records'])} records, no problems.")
+    return 0
+
+
+def cmd_ready(project, candidates=False, release=False):
+    data = load(project)
+    problems = data["warnings"] + readiness(data["records"], candidates, release)
+    if problems:
+        print(f"{len(problems)} readiness gap(s); unfinished ideas are allowed:")
+        print_warnings(problems)
+        return 1
+    print("Recorded release checks complete." if release else "Ready for a playtest on the recorded information.")
+    print("This does not prove puzzle fairness, uniqueness or physical reliability.")
     return 0
 
 
@@ -470,6 +514,9 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("build", help="write site/ from records/")
     sub.add_parser("check", help="validate records")
+    rp = sub.add_parser("ready", help="audit playtest preparation without changing records")
+    rp.add_argument("--include-candidates", action="store_true", help="also audit draft candidates")
+    rp.add_argument("--release", action="store_true", help="also require recorded physical playtest evidence")
     sp = sub.add_parser("serve", help="build and preview")
     sp.add_argument("--port", type=int, default=8000)
     np_ = sub.add_parser("new", help="create a record from a template")
@@ -487,6 +534,8 @@ def main():
         cmd_build(project)
     elif a.cmd == "check":
         return cmd_check(project)
+    elif a.cmd == "ready":
+        return cmd_ready(project, a.include_candidates, a.release)
     elif a.cmd == "serve":
         cmd_serve(project, a.port)
     elif a.cmd == "new":

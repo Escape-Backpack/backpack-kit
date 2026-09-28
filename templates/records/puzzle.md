@@ -19,6 +19,14 @@ lock:
 answer:
 # What players call this lock on the hint page, e.g. "The luggage tag" (spoiler-free)
 hint_title:
+# Explicit opt-in for the PUBLIC hint page. Candidates are never published.
+publish_hints: no
+# Independent of design/build status: untested | passed | changes-needed
+test_status: untested
+# physical | digital (a digital walkthrough does not verify a physical prop)
+test_method:
+# Optional stable Clue Library technique link
+technique:
 # Any related record IDs, e.g. [PZ-002, Q-004]
 links: []
 # Set to an ID when this record is replaced. It then moves to the Parked tab.
@@ -28,9 +36,24 @@ tags: []
 
 ## How it works
 
+## Player notices
+
+## Player does
+
+## Player obtains
+
+## Story reason
+
+## Reading order
+
 ## Clue wording
 
 ## Hints
 1.
 
 ## Solution
+
+## Playtest evidence
+<!-- Add dated observations only after a test: version/files tested, physical or
+digital, what the player tried, where they stalled, hints used, interpretation,
+change made and retest result. After a relevant edit, mark untested again. -->

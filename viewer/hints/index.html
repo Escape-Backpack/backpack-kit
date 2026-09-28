@@ -55,9 +55,8 @@ main { max-width: 760px; }
 "use strict";
 const H = window.HINTS;
 const $ = s => document.querySelector(s);
-const TEST = new URLSearchParams(location.search).has("all");
-const LOCKS = H.locks.filter(l => TEST || l.status !== "candidate");
-const KEY = "bp-hints:" + H.name;
+const LOCKS = H.locks;
+const KEY = "bp-hints:v2:" + H.name;
 
 let S = { team: "", started: 0, paused: 0, pausedAt: 0, shown: {}, finished: 0 };
 try { S = Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
@@ -81,11 +80,11 @@ function render() {
   }
   $("#teamlbl").textContent = S.team || "";
   $("#pause").textContent = S.pausedAt ? "Resume" : "Pause";
-  let h = TEST ? `<div class="test">Test mode (?all): candidate locks are included.</div>` : "";
+  let h = "";
   h += `<p class="note">Stuck? Open one hint at a time for the lock you're working on. The last step shows the solution.</p>`;
   if (!LOCKS.length) h += `<div class="empty">No locks are ready yet.</div>`;
   LOCKS.forEach((l, i) => {
-    const n = S.shown[i] || 0, total = l.hints.length + 1;
+    const n = S.shown[l.id] || 0, total = l.hints.length + 1;
     const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")
       + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
     const next = n < l.hints.length ? `Hint ${n + 1}` : n < total ? "Show the solution" : "";
@@ -104,9 +103,9 @@ document.addEventListener("click", e => {
   }
   const nx = e.target.closest("[data-next]");
   if (nx) {
-    const i = +nx.dataset.next, l = LOCKS[i], n = S.shown[i] || 0;
+    const i = +nx.dataset.next, l = LOCKS[i], n = S.shown[l.id] || 0;
     if (n >= l.hints.length && !confirm("Show the solution for this lock?")) return;
-    S.shown[i] = n + 1; save(); render(); return;
+    S.shown[l.id] = n + 1; save(); render(); return;
   }
   if (e.target.id === "again") { S = { team: "", started: 0, paused: 0, pausedAt: 0, shown: {}, finished: 0 }; save(); $("#done").hidden = true; render(); }
 });

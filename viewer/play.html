@@ -91,7 +91,7 @@ function model() {
   const opened = id => !!S.done[id];
   const inHand = props.filter(p => p.found_in === "start" || (p.found_in && opened(p.found_in)));
   const handIds = new Set(inHand.map(p => p.id));
-  const ready = (p, done, hand) => asList(p.needs).every(n => done.has(n)) && asList(p.props).filter(x => inGame.has(x)).every(x => hand.has(x));
+  const ready = (p, done, hand) => asList(p.needs).every(n => done.has(n)) && asList(p.props).every(x => hand.has(x));
   const doneSet = new Set(Object.keys(S.done));
   const open = puzzles.filter(p => !opened(p.id) && ready(p, doneSet, handIds));
 
@@ -108,7 +108,7 @@ function model() {
   for (const p of puzzles) {
     if (!simDone.has(p.id)) {
       const why = [...asList(p.needs).filter(n => !simDone.has(n)).map(n => `needs ${n}${inGame.has(n) ? "" : " (not in the game at this status)"}`),
-                   ...asList(p.props).filter(x => inGame.has(x) && !simHand.has(x)).map(x => `prop ${x} never reached`)];
+                   ...asList(p.props).filter(x => !simHand.has(x)).map(x => `prop ${x} ${inGame.has(x) ? "never reached" : "not in the game at this status"}`)];
       checks.push(`${p.id} ${p.title}: can never be opened (${why.join(", ") || "unknown"})`);
     }
     if (!p.answer) checks.push(`${p.id} ${p.title}: no answer recorded, so testers can only skip it`);

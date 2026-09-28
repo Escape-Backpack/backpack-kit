@@ -11,7 +11,12 @@ one Markdown file per record, rendered by the shared viewer from
 - Unfinished work and open questions are normal. Record them as `question` records.
 - **Never invent** rules, answers or status. If something isn't decided, it stays
   `idea` or `candidate`, or becomes an open question.
-- Clues are subtle, with no signposting, especially in the final puzzle.
+- Prefer subtle clues, but every necessary connection must be inferable from the game.
+  Theme-specific preferences belong in premise records, not universal rules.
+- Built does not mean tested. Record playtest evidence separately; never invent a
+  pass. After changes to a tested mechanism or clue, mark test_status untested.
+- Keep publish_hints: no until the designer explicitly chooses to release the
+  puzzle's hints. Candidate answers must not enter the public hint build.
 - Don't commit or push unless the designer says so.
 - At the end of a session, update `HANDOFF.md`.
 
@@ -24,6 +29,9 @@ one Markdown file per record, rendered by the shared viewer from
 - Replacing an idea: create the new record and set `superseded_by: <new ID>` on the old one.
   Don't delete it.
 - Run `python ../backpack-kit/kit.py check` after editing. It must report no problems.
+- Before a playtest run `python ../backpack-kit/kit.py ready --include-candidates`.
+  It reports gaps without forcing unfinished ideas into decisions. Before release,
+  run `ready --release` for the decided/built game and check the actual lock wheels.
 
 ## Kit location
 The kit is expected next to this repo, at `../backpack-kit`. If it's missing

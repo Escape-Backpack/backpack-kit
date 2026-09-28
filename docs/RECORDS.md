@@ -44,6 +44,36 @@ in `backpack.json` → `beatLabel` (the Norse backpack used postcards).
 - Questions: `open` → `answered`, or `parked`
 - Replaced: keep the old record and set `superseded_by: <new ID>`. It moves to the Parked tab.
 
+### Testing and release are separate
+
+Puzzle fields: `test_status: untested | passed | changes-needed`, `test_method:
+physical | digital`, `publish_hints: yes | no`, and optional `technique` (library URL).
+Old records without these fields remain valid: missing testing means unrecorded;
+missing publish_hints means private. No historical puzzle is automatically marked tested.
+
+The puzzle body adds `## Player notices`, `## Player does`, `## Player obtains`,
+`## Story reason`, `## Reading order` and `## Playtest evidence`. Evidence records
+date, version/files, method, observed actions/stalls, hints used, interpretation,
+change and retest. After relevant edits set test_status back to untested.
+
+Props add `container` (physical location) and `## Starting state`, `## Reset`,
+`## Replacement`. Use explicit "None needed" where appropriate. `found_in` remains
+the single source for availability; it does not mean physical location.
+
+### Checks and generated views
+
+- `check`: record validity, reference existence/types and allowed values.
+- `ready`: playtest preparation for decided/built puzzles and props. Flags unreachable
+  puzzles/props, missing solving notes, answers, incompatible standard lock formats,
+  missing setup/reset and missing player-visible materials.
+- `ready --include-candidates`: includes draft candidates without changing status.
+- `ready --release`: also requires a recorded passed physical playtest and evidence.
+  An empty selected game does not pass. Missing fields are gaps, not auto-filled facts.
+- Flow includes active ideas/candidates, showing needs, prop use and prop releases.
+  Missing availability and cycles remain marked unresolved. The text list gives the
+  same connections without relying on the diagram.
+- Setup & reset derives its table from prop records. No separate checklist to maintain.
+
 ## One fact, one place
 
 Each relationship is stored on **one** side only. The viewer shows the other side.
@@ -74,10 +104,17 @@ player never gets, and props with nothing to show.
 
 ## Hint page (`hints/index.html`)
 A public, player-facing page built into `site/hints/`, one self-contained file.
-It lists the `decided` and `built` locks in play order (`?all` adds candidates), each with:
+It includes only `decided` and `built` puzzles explicitly marked `publish_hints: yes`, in play order, each with:
 - its `hint_title`: what players call the lock, with no spoilers (for example "The luggage tag")
 - the `## Hints` list, one hint at a time
 - the solution: `answer`, plus the `## Solution` section of the puzzle's body
+
+Candidates are excluded from the file itself, including when `?all` is requested.
+Published records must have a hint title, hints, solution and an answer if they use
+a lock. Existing projects must explicitly opt in when ready; their public hint
+page will otherwise be empty after rebuilding. Use private play.html for drafts.
+Progress uses stable puzzle IDs, not array positions; this version starts a new
+browser progress namespace rather than misreading older position-based progress.
 
 Nothing else from the records is included. Team name, timer and progress stay in the player's browser.
 

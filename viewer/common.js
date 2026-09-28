@@ -16,6 +16,7 @@ function inline(s, idFn) {
   return s.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codes[i]}</code>`);
 }
 function md(src, idFn) {
+  src = String(src || "").replace(/<!--[^]*?-->/g, "");
   let html = "", para = [], list = null, code = null;
   const flushP = () => { if (para.length) { html += `<p>${inline(para.join(" "), idFn)}</p>`; para = []; } };
   const flushL = () => { if (list) { html += `<${list.t}>${list.items.map(i => `<li>${inline(i, idFn)}</li>`).join("")}</${list.t}>`; list = null; } };
