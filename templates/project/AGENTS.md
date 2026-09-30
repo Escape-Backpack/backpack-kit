@@ -39,6 +39,8 @@ The kit is expected next to this repo, at `../backpack-kit`. If it's missing
 `git clone https://github.com/Escape-Backpack/backpack-kit ../backpack-kit`
 
 ## Preview
-- Online: the design pages are built by Cloudflare Pages on every push to main (`cloudflare-build.sh`),
-  at `https://<backpack>-design.escapepack.ca/`. They're behind a login, except the public hint page at `/hints/`.
+- Online: escapepack.ca rebuilds a few minutes after every push to main
+  (`.github/workflows/rebuild-site.yml`). The design board is at `https://escapepack.ca/design/<slug>/`
+  (no login, `noindex`) and the public hint page at `https://escapepack.ca/help/<slug>/`.
+  The slug is this repo's line in `escapepack-site/backpacks.txt`.
 - Local: `python ../backpack-kit/kit.py serve`, then open http://localhost:8000/site/

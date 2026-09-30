@@ -5,8 +5,9 @@ as design guidance; call something a confirmed lesson only when the source sessi
 supports it. Defaults are choices, not proof that a mechanism will work.
 
 ## The format
-A family member sends the player a backpack about their passion. The player
-solves puzzles through the backpack's contents.
+Someone the player knows sends them a backpack about their passion: a family member,
+a friend, or another acquaintance (a co-worker, a pen pal...). The player solves
+puzzles through the backpack's contents.
 
 ## Final prize: a medallion (all backpacks)
 Every backpack ends with a medallion as the final prize.
