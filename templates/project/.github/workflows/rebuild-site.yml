@@ -1,0 +1,22 @@
+# Rebuilds escapepack.ca on every push to main, so this backpack's design board
+# (/design/<slug>/) and hint page (/help/<slug>/hints/) show the latest records.
+# Needs the repo secret SITE_DEPLOY_HOOK: the Cloudflare deploy hook URL of escapepack-site.
+# The backpack must also be listed in escapepack-site/backpacks.txt.
+name: Rebuild escapepack.ca
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the Cloudflare deploy
+        env:
+          HOOK: ${{ secrets.SITE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "::error::The SITE_DEPLOY_HOOK secret is not set"; exit 1; fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Deploy triggered."
