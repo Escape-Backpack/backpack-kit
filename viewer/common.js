@@ -56,3 +56,24 @@ function mdSection(body, heading) {
 function mdListItems(section) {
   return section.split("\n").map(l => l.match(/^\s*(?:[-*]|\d+\.)\s*(.*)$/)).filter(m => m && m[1].trim()).map(m => m[1].trim());
 }
+
+// ---------- site bar + light/dark toggle ----------
+// Shares the "ebp-theme" choice with escapepack.ca. No choice stored = follow the OS setting.
+(() => {
+  const KEY = "ebp-theme";
+  const dark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+  const current = () => document.documentElement.dataset.theme || (dark() ? "dark" : "light");
+  const bar = document.createElement("div");
+  bar.className = "sitebar";
+  bar.innerHTML = '<a class="brand" href="https://escapepack.ca"><i aria-hidden="true"></i><span>Escape<br>Backpack</span></a><button class="theme-toggle" type="button"></button>';
+  const btn = bar.querySelector("button");
+  const label = () => { const d = current() === "dark"; btn.textContent = d ? "Light mode" : "Dark mode"; btn.setAttribute("aria-label", d ? "Switch to light mode" : "Switch to dark mode"); };
+  btn.addEventListener("click", () => {
+    const next = current() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    label();
+  });
+  label();
+  document.body.prepend(bar);
+})();

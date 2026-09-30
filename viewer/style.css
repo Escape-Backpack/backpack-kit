@@ -1,23 +1,57 @@
-/* Look follows the Escape Backpack site (ottawavisuals.github.io/escape-backpack-games):
-   forest canvas, brass headings, cream body, rust accents. */
+/* Look follows escapepack.ca: light paper with forest headings and rust accents, plus a
+   forest-green dark mode. Toggle and theme storage live in common.js (key "ebp-theme"). */
 :root {
-  --cream: #f4ede0; --cream-3: #e3d7bf; --muted: #8a7f6d;
-  --forest: #1f3a2e; --forest-2: #2a4a3c; --forest-deep: #162a21;
-  --brass: #d4a668; --brass-2: #e8c28a; --rust: #a8492b; --rust-2: #c25b3a;
-  --line: rgba(244, 237, 224, 0.12); --line-strong: rgba(244, 237, 224, 0.25);
-  --s-idea: #a39884; --s-candidate: #d4a668; --s-decided: #8fc1d4; --s-built: #9cc98a;
-  --s-parked: #c25b3a; --s-open: #d4a668; --s-answered: #9cc98a; --s-superseded: #6f6655;
-  --warn: #c25b3a; --stale: #e8c28a;
+  /* Light is the default and matches escapepack.ca (paper, forest ink, rust accents).
+     Names keep their old dark-theme meaning: --forest is the page, --cream the text. */
+  --forest: #f3eadb; --forest-2: #fbf7ee; --forest-deep: #e9ddca;
+  --cream: #20392e; --cream-3: #3d5648; --muted: #65776b;
+  --brass: #17372d; --brass-2: #b95b3d; --rust: #b95b3d; --rust-2: #a04a2f; --on-rust: #fff;
+  --line: rgba(32, 57, 46, 0.17); --line-strong: rgba(32, 57, 46, 0.34);
+  --s-idea: #8a7f6d; --s-candidate: #a87424; --s-decided: #2f7590; --s-built: #4a7f38;
+  --s-parked: #b95b3d; --s-open: #a87424; --s-answered: #4a7f38; --s-superseded: #9a917f;
+  --warn: #b95b3d; --stale: #a87424;
+  --nav-bg: rgba(247, 241, 230, .94); --glow-1: rgba(214,173,107,.10); --glow-2: rgba(185,91,61,.05);
+  --flow-a: #e3efe6; --flow-b: #fbf7ee; --flow-stroke: #5f8a70; --flow-block: #b95b3d;
+  --flow-id: #8a5f1c; --flow-title: #20392e; --flow-status: #3d5648; --flow-needs: #a87424; --flow-use: #4f7d63;
   --serif: "Young Serif", "Cormorant Garamond", Georgia, serif;
   --sans: "Inter Tight", "Inter", -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+/* Dark: forest-green page. Applies when the visitor picked it, or the OS prefers it and they haven't picked light. */
+:root[data-theme="dark"] {
+  --forest: #17372d; --forest-2: #214b3d; --forest-deep: #10291f;
+  --cream: #f7f1e6; --cream-3: #d8ccb4; --muted: #9db0a2;
+  --brass: #d6ad6b; --brass-2: #e8c28a; --rust: #b95b3d; --rust-2: #e0805e;
+  --line: rgba(244, 237, 224, 0.14); --line-strong: rgba(244, 237, 224, 0.28);
+  --s-idea: #a39884; --s-candidate: #d4a668; --s-decided: #8fc1d4; --s-built: #9cc98a;
+  --s-parked: #e0805e; --s-open: #d4a668; --s-answered: #9cc98a; --s-superseded: #8b8270;
+  --warn: #e0805e; --stale: #e8c28a;
+  --nav-bg: rgba(16, 41, 31, .94); --glow-1: rgba(212,166,104,.06); --glow-2: rgba(168,73,43,.05);
+  --flow-a: #234b3e; --flow-b: #142e24; --flow-stroke: #77947c; --flow-block: #e8a674;
+  --flow-id: #d9b47a; --flow-title: #f6f0e3; --flow-status: #cbd7bd; --flow-needs: #d9b47a; --flow-use: #91b9a3;
   color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --forest: #17372d; --forest-2: #214b3d; --forest-deep: #10291f;
+    --cream: #f7f1e6; --cream-3: #d8ccb4; --muted: #9db0a2;
+    --brass: #d6ad6b; --brass-2: #e8c28a; --rust: #b95b3d; --rust-2: #e0805e;
+    --line: rgba(244, 237, 224, 0.14); --line-strong: rgba(244, 237, 224, 0.28);
+    --s-idea: #a39884; --s-candidate: #d4a668; --s-decided: #8fc1d4; --s-built: #9cc98a;
+    --s-parked: #e0805e; --s-open: #d4a668; --s-answered: #9cc98a; --s-superseded: #8b8270;
+    --warn: #e0805e; --stale: #e8c28a;
+    --nav-bg: rgba(16, 41, 31, .94); --glow-1: rgba(212,166,104,.06); --glow-2: rgba(168,73,43,.05);
+    --flow-a: #234b3e; --flow-b: #142e24; --flow-stroke: #77947c; --flow-block: #e8a674;
+    --flow-id: #d9b47a; --flow-title: #f6f0e3; --flow-status: #cbd7bd; --flow-needs: #d9b47a; --flow-use: #91b9a3;
+    color-scheme: dark;
+  }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--forest); color: var(--cream); }
 body { font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; min-height: 100vh;
-  background-image: radial-gradient(circle at 20% 20%, rgba(212,166,104,.06) 0%, transparent 55%),
-    radial-gradient(circle at 85% 75%, rgba(168,73,43,.05) 0%, transparent 50%); background-attachment: fixed; }
+  background-image: radial-gradient(circle at 20% 20%, var(--glow-1) 0%, transparent 55%),
+    radial-gradient(circle at 85% 75%, var(--glow-2) 0%, transparent 50%); background-attachment: fixed; }
 a { color: var(--brass); }
 a:hover { color: var(--rust-2); }
 h1, h2, h3 { font-family: var(--serif); font-weight: 400; color: var(--brass); letter-spacing: -0.01em; line-height: 1.15; }
@@ -32,7 +66,7 @@ header .sub { color: var(--muted); font: 12px var(--mono); letter-spacing: .06em
 #q:focus { border-color: var(--brass); }
 #q::placeholder { color: var(--muted); }
 nav { display: flex; gap: clamp(14px, 2.4vw, 28px); padding: 0 clamp(16px, 4vw, 40px); overflow-x: auto;
-  position: sticky; top: 0; z-index: 5; background: rgba(22,42,33,.92); backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 5; background: var(--nav-bg); backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px); border-bottom: 2px solid var(--rust); }
 nav a { padding: 14px 2px 12px; color: var(--brass); text-decoration: none; white-space: nowrap; position: relative;
   font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
@@ -115,7 +149,7 @@ h2 .n { color: var(--muted); font: 12px var(--mono); letter-spacing: .08em; marg
   border-radius: 2px; padding: 10px 12px; white-space: pre-wrap; max-height: 160px; overflow: auto; margin: 0; cursor: text; }
 .btn { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; padding: 7px 14px; border-radius: 3px;
   border: 1px solid var(--rust); background: transparent; color: var(--cream); cursor: pointer; transition: background .15s; }
-.btn:hover { background: var(--rust); }
+.btn:hover { background: var(--rust); color: var(--on-rust); }
 .made { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .thumb { max-width: 100%; max-height: 150px; border-radius: 2px; object-fit: contain; align-self: flex-start; border: 1px solid var(--line); }
 /* drawer */
@@ -147,3 +181,15 @@ h2 .n { color: var(--muted); font: 12px var(--mono); letter-spacing: .08em; marg
   #drawer { padding: 18px 16px 40px; }
 }
 .readiness{padding:12px 16px;border:1px solid var(--line);margin:12px 0}.readiness summary{cursor:pointer}.readiness li{margin:9px 0}.flow-scroll{overflow:auto;max-width:100%;margin-top:20px}.flow-scroll svg{font-family:var(--sans,Arial,sans-serif)}.flow-scroll svg a:focus rect{stroke:#fff;stroke-width:3}.reset-table{border-collapse:collapse;min-width:760px;width:100%;font-size:13px}.reset-table th,.reset-table td{border:1px solid var(--line);padding:14px;text-align:left;vertical-align:top}.reset-table td{min-width:130px}.reset-table p{margin:0 0 8px}
+
+/* site chrome + theme toggle */
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--cream); text-decoration: none; font: 700 13px/1.05 var(--sans); }
+.brand:hover { color: var(--cream); }
+.brand i { display: block; width: 30px; height: 30px; background: var(--brass);
+  -webkit-mask: url(/assets/logo.png) center/contain no-repeat; mask: url(/assets/logo.png) center/contain no-repeat; }
+.theme-toggle { font: 500 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 7px 12px; border-radius: 3px;
+  border: 1px solid var(--line-strong); background: transparent; color: var(--cream); cursor: pointer; }
+.theme-toggle:hover { border-color: var(--brass); }
+:focus-visible { outline: 3px solid var(--rust); outline-offset: 3px; }
+.sitebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px clamp(16px, 4vw, 40px);
+  background: var(--forest-2); border-bottom: 1px solid var(--line); }

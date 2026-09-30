@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>Hint companion</title>
 <!-- Player-facing hint page from backpack-kit. kit.py build inlines the style, helpers and data,
      so this one file is all a player's phone needs. Only hint text and solutions are included. -->
@@ -13,7 +14,7 @@
 <link rel="stylesheet" href="../style.css">
 <style>
 main { max-width: 760px; }
-.bar-top { position: sticky; top: 0; z-index: 5; background: rgba(22,42,33,.94); backdrop-filter: blur(10px);
+.bar-top { position: sticky; top: 0; z-index: 5; background: var(--nav-bg); backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px); border-bottom: 2px solid var(--rust); }
 .bar-top .in { max-width: 760px; margin: 0 auto; padding: 10px clamp(16px, 4vw, 40px); display: flex; gap: 12px;
   align-items: center; justify-content: space-between; flex-wrap: wrap; }
@@ -23,7 +24,7 @@ main { max-width: 760px; }
 .start input { width: 100%; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 3px; margin: 10px 0 16px;
   background: var(--forest-deep); color: var(--cream); font: 17px var(--sans); outline: none; }
 .start input:focus { border-color: var(--brass); }
-.btn.big { font-size: 12px; padding: 12px 20px; background: var(--rust); }
+.btn.big { font-size: 12px; padding: 12px 20px; background: var(--rust); color: var(--on-rust); }
 .btn.big:hover { background: var(--rust-2); }
 .lockcard { background: var(--forest-2); border: 1px solid var(--line); border-radius: 2px; padding: 18px 20px; margin-bottom: 14px; }
 .lockcard h3 { margin: 0 0 4px; font-size: 1.35rem; }

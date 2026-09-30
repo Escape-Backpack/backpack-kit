@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>Backpack Design</title>
 <!-- Shared viewer from backpack-kit. Do not edit the copy in site/: it is overwritten on every build. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,14 +198,14 @@ function renderFlow() {
   const width = Math.max(480, ...Object.values(counts).map(n => n * 245 + 20)), height = (maxLevel + 1) * 135 + 20;
   const lines = model.edges.filter(e => positions[e.from] && positions[e.to]).map(e => {
     const a = positions[e.from], b = positions[e.to];
-    return `<path d="M${a.x + 107} ${a.y + 92} C${a.x + 107} ${a.y + 120},${b.x + 107} ${b.y - 20},${b.x + 107} ${b.y}" fill="none" stroke="${e.kind === "needs" ? "#d9b47a" : "#91b9a3"}" stroke-width="2" marker-end="url(#flow-arrow)" ${e.kind === "needs" ? 'stroke-dasharray="5 4"' : ""}/>`;
+    return `<path d="M${a.x + 107} ${a.y + 92} C${a.x + 107} ${a.y + 120},${b.x + 107} ${b.y - 20},${b.x + 107} ${b.y}" fill="none" style="stroke:${e.kind === "needs" ? "var(--flow-needs)" : "var(--flow-use)"}" stroke-width="2" marker-end="url(#flow-arrow)" ${e.kind === "needs" ? 'stroke-dasharray="5 4"' : ""}/>`;
   }).join("");
   const nodes = model.nodes.map(n => {
     const p = positions[n.id], words = n.title.match(/.{1,25}(?:\s|$)|.{1,25}/g) || [n.title];
-    return `<a href="#flow${n.id === "start" ? "" : "/" + n.id}" aria-label="${esc(n.id + " " + n.title)}"><rect x="${p.x}" y="${p.y}" width="214" height="92" rx="5" fill="${n.type === "puzzle" ? "#234b3e" : "#142e24"}" stroke="${n.blocked ? "#e8a674" : "#77947c"}"/><text x="${p.x + 12}" y="${p.y + 20}" font-size="10" fill="#d9b47a">${esc(n.id)} · ${esc(n.type)}</text><text x="${p.x + 12}" y="${p.y + 41}" font-size="12" fill="#f6f0e3">${words.slice(0,2).map((w,i) => `<tspan x="${p.x + 12}" dy="${i ? 16 : 0}">${esc(w.trim())}</tspan>`).join("")}</text><text x="${p.x + 12}" y="${p.y + 80}" font-size="10" fill="#cbd7bd">${esc(n.blocked ? "Blocked / availability unresolved" : n.status)}</text></a>`;
+    return `<a href="#flow${n.id === "start" ? "" : "/" + n.id}" aria-label="${esc(n.id + " " + n.title)}"><rect x="${p.x}" y="${p.y}" width="214" height="92" rx="5" style="fill:${n.type === "puzzle" ? "var(--flow-a)" : "var(--flow-b)"};stroke:${n.blocked ? "var(--flow-block)" : "var(--flow-stroke)"}"/><text x="${p.x + 12}" y="${p.y + 20}" font-size="10" style="fill:var(--flow-id)">${esc(n.id)} · ${esc(n.type)}</text><text x="${p.x + 12}" y="${p.y + 41}" font-size="12" style="fill:var(--flow-title)">${words.slice(0,2).map((w,i) => `<tspan x="${p.x + 12}" dy="${i ? 16 : 0}">${esc(w.trim())}</tspan>`).join("")}</text><text x="${p.x + 12}" y="${p.y + 80}" font-size="10" style="fill:var(--flow-status)">${esc(n.blocked ? "Blocked / availability unresolved" : n.status)}</text></a>`;
   }).join("");
   const blocked = model.nodes.filter(n => n.blocked);
-  return `<h2>Puzzle and prop flow</h2><p class="note">Includes active ideas and candidates. Solid arrows: prop use / reveal. Dashed arrows: prerequisite puzzles. All incoming requirements must be met. Click a box for its record. Missing inputs and cycles stay unresolved.</p>${blocked.length ? `<div class="warnbox">Unresolved: ${blocked.map(n => refChip(n.id)).join(" ")}</div>` : ""}<div class="flow-scroll"><svg role="img" aria-label="Puzzle and prop dependency diagram" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#91b9a3"/></marker></defs>${lines}${nodes}</svg></div><details class="readiness"><summary>Connections as text</summary><ul>${model.edges.map(e => `<li>${refChip(e.from)} → ${refChip(e.to)} (${esc(e.kind)})</li>`).join("")}</ul></details>`;
+  return `<h2>Puzzle and prop flow</h2><p class="note">Includes active ideas and candidates. Solid arrows: prop use / reveal. Dashed arrows: prerequisite puzzles. All incoming requirements must be met. Click a box for its record. Missing inputs and cycles stay unresolved.</p>${blocked.length ? `<div class="warnbox">Unresolved: ${blocked.map(n => refChip(n.id)).join(" ")}</div>` : ""}<div class="flow-scroll"><svg role="img" aria-label="Puzzle and prop dependency diagram" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" style="fill:var(--flow-use)"/></marker></defs>${lines}${nodes}</svg></div><details class="readiness"><summary>Connections as text</summary><ul>${model.edges.map(e => `<li>${refChip(e.from)} → ${refChip(e.to)} (${esc(e.kind)})</li>`).join("")}</ul></details>`;
 }
 
 function renderReset() {
