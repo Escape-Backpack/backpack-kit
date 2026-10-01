@@ -18,6 +18,7 @@ import functools
 import http.server
 import json
 import os
+import time
 import re
 import shutil
 import subprocess
@@ -403,6 +404,17 @@ def cmd_build(project, quiet=False):
     for name in os.listdir(viewer):
         if name.endswith((".html", ".js", ".css")):
             shutil.copyfile(os.path.join(viewer, name), os.path.join(site, name))
+    # Static hosts cache .js/.css for hours; a new ?v= on each build makes a normal refresh
+    # pick up the latest data.js. The HTML pages themselves are always revalidated.
+    version = str(int(time.time()))
+    for page in ("index.html", "play.html"):
+        path = os.path.join(site, page)
+        with open(path, encoding="utf-8") as f:
+            html = f.read()
+        for asset in ("data.js", "common.js", "style.css"):
+            html = html.replace('"' + asset + '"', '"' + asset + "?v=" + version + '"')
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(html)
     # Copy made asset files into site/files/ so the page works when only site/ is published.
     files_dir = os.path.join(site, "files")
     shutil.rmtree(files_dir, ignore_errors=True)
