@@ -89,7 +89,9 @@ function render() {
     const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")
       + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
     const next = n < l.hints.length ? `Hint ${n + 1}` : n < total ? "Show the solution" : "";
-    h += `<section class="lockcard"><h3>${i + 1}. ${esc(l.title || lockName(l))}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
+    // A title that is already the lock number ("Lock 3") needs no "3." in front.
+    const head = /^lock \d+$/i.test(l.title) ? l.title : `${i + 1}. ${l.title || lockName(l)}`;
+    h += `<section class="lockcard"><h3>${esc(head)}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
       ${l.title ? `<div class="kv">${esc(lockName(l))}</div>` : ""}<div class="levels">${levels}</div>
       ${next ? `<div class="btnrow"><button class="btn" data-next="${i}">${next}</button></div>` : ""}</section>`;
   });
