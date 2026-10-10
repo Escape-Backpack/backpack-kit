@@ -120,6 +120,18 @@ browser progress namespace rather than misreading older position-based progress.
 
 Nothing else from the records is included. Without `stats` (below), team name, timer and progress stay in the player's browser.
 
+## Reset checklist (`reset/index.html`, optional)
+With `"publish_reset": true` in `backpack.json`, `build` also writes `site/reset/`: a public,
+self-contained checklist, one step per lock from the last lock to the first (inner pouches are
+packed before the pockets around them close), then what starts outside the locks and a last check.
+Each step shows the lock's code, its `container`, the props found in it, and how to leave it:
+- puzzle `reset_display`: what the lock shows once relocked (e.g. `0000`, `LOCK`);
+- puzzle `container_in`: the puzzle whose compartment holds this lock's container (nesting);
+- prop `after_game`: `return` (default), `keep` (the team takes it home), `stays` (listed in the
+  last check), `none` (not mentioned); prop `reset_name`: the name players know it by;
+- prop `## Reset`: shown under its lock ("None needed" / "Not recorded yet" are skipped;
+  a note shared by 3+ props is shown once at the top).
+
 ### Run logging and team comparison (optional)
 Add to `backpack.json`:
 

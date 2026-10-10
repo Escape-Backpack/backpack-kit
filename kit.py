@@ -40,8 +40,10 @@ STATUSES = ["idea", "candidate", "decided", "built", "parked"]
 QUESTION_STATUSES = ["open", "answered", "parked"]
 STALE_STATUSES = {"idea", "candidate"}
 # Fields whose values are record IDs. Backlinks are derived from these.
-REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for", "found_in"]
+REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for", "found_in", "container_in"]
 INT_FIELDS = ["order", "difficulty"]
+# What happens to a prop after the game, on the public reset page (blank = return).
+AFTER_GAME = ["return", "keep", "stays", "none"]
 ID_RE = re.compile(r"^([A-Z]{1,2})-(\d{3,})$")
 # Default lock kit for every backpack (GUIDE.md). A backpack can override "locks" in backpack.json.
 DEFAULT_LOCKS = ["3-digit", "4-digit", "4-letter", "3-digit-colour"]
@@ -212,6 +214,8 @@ def load(project):
                                         ("publish_hints", ("yes", "no"))):
                 if fields.get(key) and fields[key] not in allowed_values:
                     warn(rel, rid, f"{key} must be one of: {', '.join(allowed_values)}")
+        if rtype == "prop" and fields.get("after_game") and fields["after_game"] not in AFTER_GAME:
+            warn(rel, rid, f"after_game must be one of: {', '.join(AFTER_GAME)}")
 
         history = per_file.get(rel, [])
         is_dirty = rel in dirty or not history
@@ -246,7 +250,7 @@ def load(project):
                     warn(r["path"], r["id"], f"found_in must be start or a puzzle ID, not {target}")
                 if target not in by_id:
                     warn(r["path"], r["id"], f"{field} points to unknown id {target}")
-                expected = {"beat": "beat", "props": "prop", "needs": "puzzle", "for": "prop"}.get(field)
+                expected = {"beat": "beat", "props": "prop", "needs": "puzzle", "for": "prop", "container_in": "puzzle"}.get(field)
                 if expected and target in by_id and by_id[target]["type"] != expected:
                     warn(r["path"], r["id"], f"{field} requires a {expected} ID, not {target}")
         if r.get("superseded_by") == r["id"]:
@@ -403,6 +407,79 @@ def build_hints(data, site, viewer):
         f.write(html)
 
 
+NO_NOTE = re.compile(r"^(none needed|not recorded yet)\b", re.I)
+
+
+def reset_model(data):
+    """The public reset checklist: one step per lock, last lock first (inner pouches are packed
+    before the pockets around them close), then the starting position and final checks.
+    Built from puzzles (lock, answer, container, reset_display) and props (found_in, container,
+    after_game, reset_name, ## Reset)."""
+    playable = ("decided", "built")
+    live = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
+    props = [r for r in live if r["type"] == "prop"]
+    ordered = [p for p in play_order([r for r in live if r["type"] == "puzzle"], props) if p.get("lock")]
+    name = lambda p: p.get("reset_name") or p.get("title") or p["id"]
+    fate = lambda p: p.get("after_game") or "return"
+    note = lambda p: " ".join(md_section(p.get("body", ""), "Reset").split())
+
+    # A note many props share (e.g. "return each card to its pouch") is said once, at the top.
+    counts = {}
+    for p in props:
+        if note(p) and not NO_NOTE.match(note(p)):
+            counts[note(p)] = counts.get(note(p), 0) + 1
+    general = [n for n, c in counts.items() if c >= 3]
+
+    def notes(ps):
+        seen = []
+        for p in ps:
+            n = note(p)
+            if n and not NO_NOTE.match(n) and n not in general and n not in seen:
+                seen.append(n)
+        return seen
+
+    steps = []
+    for n, puzzle in reversed(list(enumerate(ordered, 1))):
+        inside = [p for p in props if p.get("found_in") == puzzle["id"]]
+        steps.append({
+            "id": puzzle["id"], "lock": n, "lockType": puzzle.get("lock") or "",
+            "where": puzzle.get("container") or "", "code": puzzle.get("answer") or "",
+            "display": puzzle.get("reset_display") or "",
+            "put": [name(p) for p in inside if fate(p) == "return"],
+            "keep": [name(p) for p in inside if fate(p) == "keep"],
+            "notes": notes(inside),
+            # Locked containers that sit inside this one (container_in), packed before it closes.
+            "nested": [{"lock": m, "where": q.get("container") or ""}
+                       for m, q in enumerate(ordered, 1) if q.get("container_in") == puzzle["id"]],
+        })
+    start = [p for p in props if p.get("found_in") == "start"]
+    groups = {}
+    for p in start:
+        if fate(p) == "return":
+            groups.setdefault(p.get("container") or "In the backpack", []).append(name(p))
+    return {
+        "name": data["config"]["name"], "builtAt": data["builtAt"], "general": general, "steps": steps,
+        "start": [{"where": w, "put": items} for w, items in groups.items()],
+        "startNotes": notes(start),
+        "check": [{"name": name(p), "where": p.get("container") or ""} for p in start if fate(p) == "stays"],
+    }
+
+
+def build_reset(data, site, viewer):
+    """Write site/reset/index.html, a public, self-contained reset checklist (publish_reset: true)."""
+    def read(name):
+        with open(os.path.join(viewer, name), encoding="utf-8") as f:
+            return f.read()
+    html = read(os.path.join("reset", "index.html"))
+    html = html.replace('<link rel="stylesheet" href="../style.css">', "<style>\n" + read("style.css") + "</style>")
+    html = html.replace('<script src="../common.js"></script>', "<script>\n" + read("common.js") + "</script>")
+    data_js = "window.RESET = " + json.dumps(reset_model(data), ensure_ascii=False).replace("</", "<\\/") + ";"
+    html = html.replace('<script src="reset-data.js"></script>', "<script>" + data_js + "</script>")
+    os.makedirs(os.path.join(site, "reset"), exist_ok=True)
+    with open(os.path.join(site, "reset", "index.html"), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
 def cmd_build(project, quiet=False):
     data = load(project)
     site = os.path.join(project, "site")
@@ -434,6 +511,8 @@ def cmd_build(project, quiet=False):
     with open(os.path.join(site, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.BACKPACK = " + payload + ";\n")
     build_hints(data, site, viewer)
+    if data["config"].get("publish_reset"):
+        build_reset(data, site, viewer)
     if not quiet:
         print(f"Built {len(data['records'])} records -> {os.path.relpath(site)}{os.sep}index.html")
         if data["warnings"]:

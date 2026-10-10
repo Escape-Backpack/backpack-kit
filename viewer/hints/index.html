@@ -56,7 +56,7 @@ main { max-width: 760px; }
 </head>
 <body>
 <div class="bar-top" id="bar" hidden><div class="in"><div><div class="clock" id="clock">00:00:00</div><div class="team" id="teamlbl"></div></div>
-  <div class="btnrow" style="margin:0"><button class="btn" id="pause">Pause</button><button class="btn" id="finish">Done!</button></div></div></div>
+  <div class="btnrow" style="margin:0"><button class="btn" id="pause">Pause</button><button class="btn" id="restart">Start over</button><button class="btn" id="finish">Done!</button></div></div></div>
 <header><div><div class="eyebrow">Hint companion</div><h1 id="proj">Backpack</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
 <main id="view"></main>
 <div id="done" hidden></div>
@@ -204,6 +204,14 @@ $("#pause").addEventListener("click", () => {
   if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; if (SYNC) SYNC.op({ t: "resume" }); }
   else { S.pausedAt = Date.now(); if (SYNC) SYNC.op({ t: "pause" }); }
   save(); render(); tick();
+});
+// Start over on this phone: timer, hints and solved locks cleared. The logged run stays unfinished,
+// so it is never compared; teammates who joined keep the old game.
+$("#restart").addEventListener("click", () => {
+  const shared = SYNC && SYNC.code ? " Teammates who joined with the game code keep the current game." : "";
+  if (!confirm("Start over? This clears the timer, hints and solved locks on this phone." + shared)) return;
+  S = fresh(); save(); if (SYNC) SYNC.leave();
+  $("#done").hidden = true; render(); tick(); window.scrollTo(0, 0);
 });
 $("#finish").addEventListener("click", () => {
   if (!S.finished && !confirm("Did you open the last lock? This stops the timer.")) return;

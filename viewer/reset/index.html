@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>Reset checklist</title>
+<!-- Player-facing reset checklist from backpack-kit (backpack.json: "publish_reset": true).
+     kit.py build inlines the style, helpers and data. One step per lock, last lock first, from the
+     puzzles' container / answer / reset_display and the props' found_in / after_game / ## Reset. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+main { max-width: 760px; }
+.progress { position: sticky; top: 0; z-index: 5; background: var(--nav-bg); backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px); border-bottom: 2px solid var(--rust); }
+.progress .in { max-width: 760px; margin: 0 auto; padding: 10px clamp(16px, 4vw, 40px); display: flex; gap: 12px; align-items: center; }
+.progress .count { font: 1.1rem var(--mono); color: var(--brass); white-space: nowrap; }
+.progress .track { flex: 1; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.progress .bar { height: 100%; width: 0; background: var(--brass); transition: width .3s; }
+.intro { margin: 6px 0 18px; }
+.step { background: var(--forest-2); border: 1px solid var(--line); border-radius: 2px; padding: 18px 20px; margin-bottom: 14px; }
+.step.done { opacity: .55; border-color: var(--brass); }
+.step h3 { margin: 0 0 2px; font-size: 1.3rem; }
+.step .where { color: var(--cream-3); font: 13px var(--mono); letter-spacing: .04em; margin-bottom: 10px; }
+.step ul { margin: 6px 0 10px 20px; padding: 0; }
+.step li { margin: 2px 0; }
+.step .keep { color: var(--brass-2); }
+.step .lockline { border-left: 2px solid var(--brass); padding: 4px 0 4px 12px; margin: 10px 0 0; }
+.code { font-family: var(--mono); letter-spacing: .02em; color: var(--brass-2); white-space: nowrap; }
+.tick { display: flex; align-items: center; gap: 10px; margin-top: 14px; cursor: pointer; font: 12px var(--mono);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--cream-3); }
+.tick input { width: 20px; height: 20px; accent-color: var(--brass); }
+.finished { border: 1px solid var(--brass); padding: 20px; text-align: center; margin: 18px 0; }
+.finished[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="progress"><div class="in"><div class="count" id="count">0 / 0</div><div class="track"><div class="bar" id="bar"></div></div></div></div>
+<header><div><div class="eyebrow">Reset checklist</div><h1 id="proj">Backpack</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
+<main id="view"></main>
+<script src="../common.js"></script>
+<script src="reset-data.js"></script>
+<script>
+"use strict";
+const R = window.RESET;
+const $ = s => document.querySelector(s);
+const KEY = "bp-reset:v1:" + R.name;
+let done = {};
+try { done = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} };
+
+const letters = s => /[A-Za-z]/.test(s || "");
+const spaced = s => esc(String(s).split("").join(" "));
+function lockLine(st) {
+  const code = st.code ? ` (code <span class="code">${spaced(st.code)}</span>)` : "";
+  const show = st.display
+    ? `leave it showing <span class="code">${spaced(st.display)}</span>`
+    : `turn the ${letters(st.code) ? "letters" : "numbers"} away from the code`;
+  return `Close it with <b>lock ${st.lock}</b>${code} and ${show}.`;
+}
+const list = items => items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : "";
+
+function steps() {
+  const out = R.steps.map(st => ({ id: st.id, html: `<h3>Lock ${st.lock}</h3><div class="where">${esc(st.where || "Container not recorded")}</div>
+    ${st.put.length ? `<div>Put back inside:</div>${list(st.put)}` : st.nested.length ? "" : `<div>Nothing goes back in here.</div>`}
+    ${st.nested.length ? `<div>Also put in, already locked:</div>${list(st.nested.map(x => `Lock ${x.lock}: ${x.where}`))}` : ""}
+    ${st.keep.length ? `<p class="keep">Yours to keep: ${esc(st.keep.join(", "))}.</p>` : ""}
+    ${st.notes.map(n => `<p class="note">${inline(n)}</p>`).join("")}
+    <p class="lockline">${lockLine(st)}</p>` }));
+  if (R.start.length || R.startNotes.length)
+    out.push({ id: "start", html: `<h3>Starting position</h3><div class="where">What stays outside the locks for the next team</div>
+      ${R.start.map(g => `<div>${esc(g.where)}:</div>${list(g.put)}`).join("")}
+      ${R.startNotes.map(n => `<p class="note">${inline(n)}</p>`).join("")}` });
+  if (R.check.length)
+    out.push({ id: "check", html: `<h3>Last check</h3>${list(R.check.map(c => c.name + (c.where ? ": " + c.where.charAt(0).toLowerCase() + c.where.slice(1) : "")))}` });
+  return out;
+}
+
+function render() {
+  const all = steps(), n = all.filter(s => done[s.id]).length;
+  $("#count").textContent = `${n} / ${all.length}`;
+  $("#bar").style.width = all.length ? (100 * n / all.length) + "%" : "0";
+  $("#view").innerHTML = `<div class="intro"><p>Thank you for packing the backpack back up for the next team!
+      Work from the top: the last lock comes first, so every pouch is locked before the pocket around it closes.</p>
+      ${R.general.map(g => `<p class="note">${inline(g)}</p>`).join("")}</div>
+    ${all.map(s => `<section class="step${done[s.id] ? " done" : ""}">${s.html}
+      <label class="tick"><input type="checkbox" data-step="${esc(s.id)}"${done[s.id] ? " checked" : ""}> Done</label></section>`).join("")}
+    <div class="finished"${n === all.length && all.length ? "" : " hidden"}><h2 style="margin-top:0">All packed!</h2>
+      <p>The backpack is ready for the next team. Thank you!</p><button class="btn" id="over">Start the checklist over</button></div>`;
+}
+
+document.addEventListener("change", e => {
+  const id = e.target.dataset && e.target.dataset.step;
+  if (!id) return;
+  if (e.target.checked) done[id] = true; else delete done[id];
+  save(); render();
+});
+document.addEventListener("click", e => { if (e.target.id === "over") { done = {}; save(); render(); window.scrollTo(0, 0); } });
+
+$("#proj").textContent = R.name;
+document.title = R.name + " · Reset checklist";
+render();
+</script>
+</body>
+</html>
