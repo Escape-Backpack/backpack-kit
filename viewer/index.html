@@ -105,6 +105,7 @@ const TABS = [
   { key: "premise", label: "Premise", count: () => ofType("premise").filter(active).length, render: renderPremise },
   { key: "structure", label: "Structure", count: () => ofType("beat").filter(active).length, render: renderStructure },
   { key: "flow", label: "Flow", render: renderFlow },
+  { key: "locks", label: "Locks", render: renderLocks },
   { key: "puzzles", label: "Puzzles", count: () => ofType("puzzle").filter(active).length, render: renderPuzzles },
   { key: "props", label: "Props", count: () => ofType("prop").filter(active).length, render: () => section("prop", "Props") },
   { key: "reset", label: "Setup & reset", render: renderReset },
@@ -212,6 +213,21 @@ function renderReset() {
   const props = vis(ofType("prop").filter(active));
   const note = (r, title) => mdSection(r.body, title).replace(/<!--[^]*?-->/g, "").trim();
   return `<h2>Setup & reset</h2><p class="note">Generated from prop records, including drafts. Availability and physical location are different: found_in controls when a prop is acquired; container says where it belongs.</p><div class="flow-scroll"><table class="reset-table"><thead><tr><th>Prop / status</th><th>Location / availability</th><th>Starting state</th><th>Reset</th><th>Replacement</th></tr></thead><tbody>${props.map(r => `<tr><td>${refChip(r.id)}<br>${pill(r.status)}</td><td>${esc(r.container || "Not recorded")}<br>${r.found_in === "start" ? "Available at start" : r.found_in ? refChip(r.found_in) : "Availability unknown"}</td>${["Starting state","Reset","Replacement"].map(s => `<td>${note(r,s) ? md(note(r,s),refChip) : '<span class="flag">Not recorded</span>'}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderLocks() {
+  const props = ofType("prop").filter(active);
+  const chips = ids => ids.length ? `<div class="refs">${ids.map(refChip).join("")}</div>` : '<span class="flag">None recorded</span>';
+  const fold = ids => ids.length > 8 ? `<details><summary>${ids.length} props</summary>${chips(ids)}</details>` : chips(ids);
+  const inside = id => props.filter(p => p.found_in === id).map(p => p.id);
+  const start = props.filter(p => p.found_in === "start");
+  const startWhere = [...new Set(start.map(p => p.container).filter(Boolean))];
+  let n = 0;
+  const rows = (D.playOrder || []).map(id => byId[id]).filter(r => r && active(r)).map(r => {
+    const lock = r.lock ? `<b>Lock ${++n}</b><br>${esc(r.lock)}${r.answer ? ` · <span class="spoiler" title="Click to reveal">${esc(r.answer)}</span>` : ""}` : "No lock";
+    return `<tr><td>${lock}<br>${refChip(r.id)}</td><td>${r.container ? esc(r.container) : '<span class="flag">Not recorded</span>'}</td><td>${chips(inside(r.id))}</td><td>${fold(asList(r.props))}</td></tr>`;
+  }).join("");
+  return `<h2>Locks</h2><p class="note">Play order, worked out from found_in, needs and props (candidates included). Compartment is the puzzle's <code>container</code> field; Inside is every prop whose found_in is that puzzle.</p><div class="flow-scroll"><table class="reset-table"><thead><tr><th>Lock</th><th>Compartment</th><th>Inside</th><th>Needed for the code</th></tr></thead><tbody><tr><td><b>Start</b></td><td>${startWhere.length ? startWhere.map(esc).join("<br>") : '<span class="flag">Not recorded</span>'}</td><td>${chips(start.map(p => p.id))}</td><td>—</td></tr>${rows}</tbody></table></div>`;
 }
 
 const filt = { status: "", beat: "", lock: "" };

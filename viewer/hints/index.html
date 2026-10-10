@@ -7,7 +7,9 @@
 <script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>Hint companion</title>
 <!-- Player-facing hint page from backpack-kit. kit.py build inlines the style, helpers and data,
-     so this one file is all a player's phone needs. Only hint text and solutions are included. -->
+     so this one file is all a player's phone needs. Only hint text and solutions are included.
+     With "stats" in backpack.json, runs are logged to that API (see sync.js), teammates can join
+     a run with its game code, and the end screen compares the team with earlier teams. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -24,9 +26,16 @@ main { max-width: 760px; }
 .start input { width: 100%; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 3px; margin: 10px 0 16px;
   background: var(--forest-deep); color: var(--cream); font: 17px var(--sans); outline: none; }
 .start input:focus { border-color: var(--brass); }
+.join { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.joinrow { display: flex; gap: 8px; align-items: center; }
+.joinrow input { margin: 8px 0; text-transform: uppercase; letter-spacing: .2em; font-family: var(--mono); }
 .btn.big { font-size: 12px; padding: 12px 20px; background: var(--rust); color: var(--on-rust); }
 .btn.big:hover { background: var(--rust-2); }
+.btn.on { background: var(--brass); color: var(--forest-deep); border-color: var(--brass); }
+.gamecode { font: 13px var(--mono); letter-spacing: .08em; color: var(--cream-3); border: 1px dashed var(--line-strong); padding: 8px 12px; margin-bottom: 14px; }
+.gamecode b { color: var(--brass); letter-spacing: .2em; font-size: 15px; }
 .lockcard { background: var(--forest-2); border: 1px solid var(--line); border-radius: 2px; padding: 18px 20px; margin-bottom: 14px; }
+.lockcard.solved { opacity: .62; border-color: var(--brass); }
 .lockcard h3 { margin: 0 0 4px; font-size: 1.35rem; }
 .lockcard .kv { margin-bottom: 12px; }
 .levels { display: flex; flex-direction: column; gap: 8px; }
@@ -38,10 +47,11 @@ main { max-width: 760px; }
 .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .test { border: 1px dashed var(--stale); color: var(--stale); padding: 8px 12px; font: 12px var(--mono); letter-spacing: .06em; margin-bottom: 14px; }
 .cand { font: 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stale); border: 1px dashed var(--stale); padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
-#done { position: fixed; inset: 0; z-index: 30; background: rgba(10,20,15,.9); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#done { position: fixed; inset: 0; z-index: 30; background: rgba(10,20,15,.9); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
 #done[hidden] { display: none; }
 #done .inner { background: var(--forest-2); border: 1px solid var(--brass); padding: 32px; max-width: 460px; width: 100%; text-align: center; }
 #done .clock { font-size: 2.4rem; margin: 10px 0 18px; }
+#cmp { margin: 4px 0 18px; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -51,6 +61,7 @@ main { max-width: 760px; }
 <main id="view"></main>
 <div id="done" hidden></div>
 <script src="../common.js"></script>
+<script src="../sync.js"></script>
 <script src="hints-data.js"></script>
 <script>
 "use strict";
@@ -58,8 +69,12 @@ const H = window.HINTS;
 const $ = s => document.querySelector(s);
 const LOCKS = H.locks;
 const KEY = "bp-hints:v2:" + H.name;
+// Logging, game codes and the comparison only run when backpack.json has a "stats" entry.
+const CFG = H.stats || null;
+const SYNC = CFG && window.EBSync ? EBSync.create({ api: CFG.api, backpack: CFG.backpack, version: CFG.version, locks: LOCKS.length, key: KEY }) : null;
 
-let S = { team: "", started: 0, paused: 0, pausedAt: 0, shown: {}, finished: 0 };
+const fresh = () => ({ team: "", session: "", started: 0, paused: 0, pausedAt: 0, shown: {}, solved: {}, finished: 0 });
+let S = fresh();
 try { S = Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -70,65 +85,140 @@ const elapsed = () => {
 };
 const fmt = ms => { const t = Math.floor(ms / 1000); return [t / 3600, t / 60 % 60, t % 60].map(n => String(Math.floor(n)).padStart(2, "0")).join(":"); };
 const lockName = l => l.lock ? `${l.lock} lock` : "Lock";
+const heading = (l, i) => /^lock \d+$/i.test(l.title) ? l.title : `${i + 1}. ${l.title || lockName(l)}`;
 
 function render() {
   $("#bar").hidden = !S.started;
   if (!S.started) {
     $("#view").innerHTML = `<div class="start"><h2 style="margin-top:0">Ready to start?</h2>
       <label class="kv" for="team">Team name</label><input id="team" autocomplete="off" placeholder="Your team">
-      <button class="btn big" id="go">Start the timer</button></div>`;
+      <button class="btn big" id="go">Start the timer</button>
+      ${SYNC ? `<div class="join"><label class="kv" for="joincode">Joining a teammate's game? Enter the code on their screen</label>
+        <div class="joinrow"><input id="joincode" autocomplete="off" maxlength="6" placeholder="CODE" autocapitalize="characters" spellcheck="false">
+        <button class="btn" id="joinbtn">Join</button></div><div class="note" id="joinmsg"></div></div>` : ""}</div>`;
     return;
   }
   $("#teamlbl").textContent = S.team || "";
   $("#pause").textContent = S.pausedAt ? "Resume" : "Pause";
   let h = "";
-  h += `<p class="note">Stuck? Open one hint at a time for the lock you're working on. The last step shows the solution.</p>`;
+  if (SYNC) h += SYNC.code
+    ? `<div class="gamecode">Game code <b>${esc(SYNC.code)}</b>: teammates can join on their phone and share this timer and hints.</div>`
+    : `<div class="gamecode">${SYNC.pending ? "Connecting…" : "Offline"}: the game code appears once this phone is online. Your progress is kept.</div>`;
+  h += `<p class="note">Stuck? Open one hint at a time for the lock you're working on. The last step shows the solution.${SYNC ? " Tap “Mark solved” when a lock opens." : ""}</p>`;
   if (!LOCKS.length) h += `<div class="empty">No locks are ready yet.</div>`;
   LOCKS.forEach((l, i) => {
-    const n = S.shown[l.id] || 0, total = l.hints.length + 1;
+    const n = S.shown[l.id] || 0, total = l.hints.length + 1, solved = !!S.solved[l.id];
     const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")
       + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
     const next = n < l.hints.length ? `Hint ${n + 1}` : n < total ? "Show the solution" : "";
-    // A title that is already the lock number ("Lock 3") needs no "3." in front.
-    const head = /^lock \d+$/i.test(l.title) ? l.title : `${i + 1}. ${l.title || lockName(l)}`;
-    h += `<section class="lockcard"><h3>${esc(head)}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
+    const buttons = (next ? `<button class="btn" data-next="${i}">${next}</button>` : "")
+      + (SYNC ? `<button class="btn${solved ? " on" : ""}" data-solve="${i}">${solved ? "✓ Solved" : "Mark solved"}</button>` : "");
+    h += `<section class="lockcard${solved ? " solved" : ""}"><h3>${esc(heading(l, i))}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
       ${l.title ? `<div class="kv">${esc(lockName(l))}</div>` : ""}<div class="levels">${levels}</div>
-      ${next ? `<div class="btnrow"><button class="btn" data-next="${i}">${next}</button></div>` : ""}</section>`;
+      ${buttons ? `<div class="btnrow">${buttons}</div>` : ""}</section>`;
   });
   $("#view").innerHTML = h;
 }
 function tick() { $("#clock").textContent = fmt(elapsed()); }
 
-document.addEventListener("click", e => {
+// The run as the server has it (this phone's actions included, plus any teammate's).
+function fromServer(st) {
+  const next = Object.assign(fresh(), { team: st.team || S.team, session: st.session_id,
+    started: SYNC.toLocal(st.started_ms), paused: st.paused_total_ms,
+    pausedAt: st.paused_since_ms != null ? SYNC.toLocal(st.paused_since_ms) : 0,
+    finished: st.finished_ms != null ? SYNC.toLocal(st.finished_ms) : 0 });
+  LOCKS.forEach((l, i) => {
+    const lv = st.hints[i] || [];
+    if (lv.length) next.shown[l.id] = Math.max(...lv) + 1;
+    if (st.lock_times[i] != null) next.solved[l.id] = true;
+  });
+  const shape = x => JSON.stringify([x.team, x.shown, x.solved, !!x.pausedAt, !!x.finished]);
+  const changed = shape(next) !== shape(S) || !S.started, ended = next.finished && !S.finished;
+  S = next; save();
+  if (changed) render();
+  tick();
+  if (ended) showDone();
+}
+if (SYNC) SYNC.onState(fromServer);
+
+function showDone() {
+  const used = Object.values(S.shown).reduce((a, b) => a + b, 0);
+  $("#done").innerHTML = `<div class="inner"><div class="eyebrow">Adventure complete</div><h2>Congratulations${S.team ? ", " + esc(S.team) : ""}!</h2>
+    <div class="clock">${fmt(elapsed())}</div><p class="note">${used} hint${used === 1 ? "" : "s"} opened. Thank you for playing ${esc(H.name)}!</p>
+    ${SYNC ? `<div id="cmp"><p style="opacity:.7">Comparing with other teams…</p></div>` : ""}
+    <button class="btn big" id="again">Play again</button></div>`;
+  $("#done").hidden = false; tick();
+  // The server's time is the one every teammate's phone shows.
+  if (SYNC) SYNC.flush().then(st => {
+    const clock = $("#done .clock");
+    if (st && st.finished_ms != null && clock) clock.textContent = fmt(st.elapsed_s * 1000);
+    return SYNC.stats();
+  }).then(stats => {
+    const box = $("#cmp");
+    if (box) box.innerHTML = EBSync.compareHTML(stats, LOCKS.map(heading));
+  });
+}
+
+document.addEventListener("click", async e => {
   if (e.target.id === "go") {
-    S = { team: $("#team").value.trim(), started: Date.now(), paused: 0, pausedAt: 0, shown: {}, finished: 0 };
-    save(); render(); tick(); return;
+    S = Object.assign(fresh(), { team: $("#team").value.trim(), started: Date.now(),
+      session: "s" + Date.now() + "_" + Math.random().toString(36).slice(2, 5) });
+    save();
+    if (SYNC) SYNC.start({ team: S.team, session: S.session }).then(() => render());
+    render(); tick(); return;
+  }
+  if (e.target.id === "joinbtn") {
+    const msg = $("#joinmsg");
+    msg.textContent = "Joining…";
+    try { fromServer(await SYNC.join($("#joincode").value)); }
+    catch (err) { msg.textContent = err.status === 404 ? "No game with that code. Check the code on your teammate's screen." : "Couldn't connect. Check your connection and try again."; }
+    return;
   }
   const nx = e.target.closest("[data-next]");
   if (nx) {
     const i = +nx.dataset.next, l = LOCKS[i], n = S.shown[l.id] || 0;
     if (n >= l.hints.length && !confirm("Show the solution for this lock?")) return;
-    S.shown[l.id] = n + 1; save(); render(); return;
+    S.shown[l.id] = n + 1; save(); render();
+    if (SYNC) SYNC.op({ t: "hint", lock: i, level: n });
+    return;
   }
-  if (e.target.id === "again") { S = { team: "", started: 0, paused: 0, pausedAt: 0, shown: {}, finished: 0 }; save(); $("#done").hidden = true; render(); }
+  const sv = e.target.closest("[data-solve]");
+  if (sv) {
+    const i = +sv.dataset.solve, linear = !!(CFG && CFG.linear);
+    if (!S.solved[LOCKS[i].id]) {
+      // Locks open in order: marking one also marks any earlier lock the team forgot to mark.
+      LOCKS.forEach((l, j) => { if (j === i || (linear && j < i)) S.solved[l.id] = true; });
+      SYNC.op({ t: "solve", lock: i, upto: linear });
+    } else {
+      LOCKS.forEach((l, j) => { if (j === i || (linear && j > i)) delete S.solved[l.id]; });
+      SYNC.op({ t: "unsolve", lock: i, after: linear });
+    }
+    save(); render(); return;
+  }
+  if (e.target.id === "again") {
+    S = fresh(); save(); if (SYNC) SYNC.leave();
+    $("#done").hidden = true; render();
+  }
 });
 $("#pause").addEventListener("click", () => {
-  if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; } else S.pausedAt = Date.now();
+  if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; if (SYNC) SYNC.op({ t: "resume" }); }
+  else { S.pausedAt = Date.now(); if (SYNC) SYNC.op({ t: "pause" }); }
   save(); render(); tick();
 });
 $("#finish").addEventListener("click", () => {
   if (!S.finished && !confirm("Did you open the last lock? This stops the timer.")) return;
-  if (!S.finished) { if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; } S.finished = Date.now(); save(); }
-  const used = Object.values(S.shown).reduce((a, b) => a + b, 0);
-  $("#done").innerHTML = `<div class="inner"><div class="eyebrow">Adventure complete</div><h2>Congratulations${S.team ? ", " + esc(S.team) : ""}!</h2>
-    <div class="clock">${fmt(elapsed())}</div><p class="note">${used} hint${used === 1 ? "" : "s"} opened. Thank you for playing ${esc(H.name)}!</p>
-    <button class="btn big" id="again">Play again</button></div>`;
-  $("#done").hidden = false; tick();
+  if (!S.finished) {
+    if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; }
+    S.finished = Date.now(); save();
+    if (SYNC) SYNC.op({ t: "finish" });
+  }
+  showDone();
 });
 
 $("#proj").textContent = H.name;
 document.title = H.name + " · Hint companion";
 render(); tick(); setInterval(tick, 1000);
+if (S.finished) showDone();
 </script>
 </body>
 </html>

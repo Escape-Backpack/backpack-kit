@@ -27,7 +27,7 @@ The build computes these, so you never type them:
 |---|---|---|---|
 | premise | PR | `premise/` | `aspect`: sender / player goal / story / tone / ending / other |
 | beat | ST | `structure/` | `order` (number), `label`, `reveals` |
-| puzzle | PZ | `puzzles/` | `beat` (one ID), `props` [IDs], `needs` [IDs], `mechanic`, `difficulty` 1–3, `lock`, `answer` |
+| puzzle | PZ | `puzzles/` | `beat` (one ID), `props` [IDs], `needs` [IDs], `mechanic`, `difficulty` 1–3, `lock`, `answer`, `container` (the compartment the lock closes) |
 | prop | PP | `props/` | `form`: physical / printed / digital, `source`: make / buy / print / 3d-print, `found_in`: `start` or a puzzle ID |
 | question | Q | `questions/` | `about` [IDs], `answer` |
 | asset | AS | `assets/` | `kind`: image / audio / text / print, `for` (one prop ID), `tool`, `file`. The body holds the generation prompt. |
@@ -73,6 +73,8 @@ the single source for availability; it does not mean physical location.
   Missing availability and cycles remain marked unresolved. The text list gives the
   same connections without relying on the diagram.
 - Setup & reset derives its table from prop records. No separate checklist to maintain.
+- Locks lists the puzzles in play order (from found_in / needs / props, including candidates):
+  lock number, the puzzle's `container`, the props found in it, and the props needed for the code.
 
 ## One fact, one place
 
@@ -116,7 +118,24 @@ page will otherwise be empty after rebuilding. Use private play.html for drafts.
 Progress uses stable puzzle IDs, not array positions; this version starts a new
 browser progress namespace rather than misreading older position-based progress.
 
-Nothing else from the records is included. Team name, timer and progress stay in the player's browser.
+Nothing else from the records is included. Without `stats` (below), team name, timer and progress stay in the player's browser.
+
+### Run logging and team comparison (optional)
+Add to `backpack.json`:
+
+```json
+"stats": { "api": "https://escapepack.ca/api", "backpack": "norse", "version": "2026-10-09", "linear": true }
+```
+
+The hint page then (`viewer/sync.js`):
+- logs each run (team name, timer, when each lock was marked solved, hints opened) to that API,
+  queueing actions offline and sending them later;
+- shows a game code, so teammates join the same run on another phone and share the timer and hints;
+- adds a "Mark solved" button per lock (`linear: true`: marking a lock also marks earlier ones);
+- compares the finished run with earlier teams of the same `version`.
+
+Change `version` whenever the lock order or a puzzle changes enough that older times no longer
+compare. The API and the rules for which runs count live in escapepack-site's `workers/stats/`.
 
 ## Syntax rules (small YAML subset)
 - `key: value` on one line. Lists are `[A, B]` or `- item` lines underneath.

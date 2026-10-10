@@ -17,6 +17,8 @@ difficulty:
 # Lock it opens: 3-digit | 4-digit | 4-letter | 3-digit-colour (blank if none)
 lock:
 answer:
+# Compartment this lock closes, e.g. "Front pocket" (shown on the Locks tab)
+container:
 # What players call this lock on the hint page, e.g. "The luggage tag" (spoiler-free)
 hint_title:
 # Explicit opt-in for the PUBLIC hint page. Candidates are never published.

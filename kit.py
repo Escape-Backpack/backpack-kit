@@ -280,6 +280,9 @@ def load(project):
         "readiness": readiness(records),
         "releaseReadiness": readiness(records, release=True),
         "flow": flow_model(records),
+        "playOrder": [p["id"] for p in play_order(
+            [r for r in records if r["type"] == "puzzle" and r.get("status") != "parked" and not r.get("superseded_by")],
+            [r for r in records if r["type"] == "prop" and r.get("status") != "parked" and not r.get("superseded_by")])],
     }
 
 
@@ -382,6 +385,9 @@ def build_hints(data, site, viewer):
         "solution": md_section(p["body"], "Solution"),
     } for p in ordered if p["id"] in public_ids]
     payload = {"name": data["config"]["name"], "builtAt": data["builtAt"], "locks": locks}
+    # Optional run logging, game codes and team comparison (viewer/sync.js); see docs/RECORDS.md.
+    if data["config"].get("stats"):
+        payload["stats"] = data["config"]["stats"]
 
     def read(name):
         with open(os.path.join(viewer, name), encoding="utf-8") as f:
@@ -389,6 +395,7 @@ def build_hints(data, site, viewer):
     html = read(os.path.join("hints", "index.html"))
     html = html.replace('<link rel="stylesheet" href="../style.css">', "<style>\n" + read("style.css") + "</style>")
     html = html.replace('<script src="../common.js"></script>', "<script>\n" + read("common.js") + "</script>")
+    html = html.replace('<script src="../sync.js"></script>', "<script>\n" + read("sync.js") + "</script>")
     data_js = "window.HINTS = " + json.dumps(payload, ensure_ascii=False).replace("</", "<\\/") + ";"
     html = html.replace('<script src="hints-data.js"></script>', "<script>" + data_js + "</script>")
     os.makedirs(os.path.join(site, "hints"), exist_ok=True)

@@ -19,9 +19,31 @@ The Norse medallion is the reference:
 - 50 mm diameter, 4.4 mm thick, one solid piece with no assembly
 - Front: a crest raised 0.6 mm above a 3.8 mm body. The yellow comes from a colour change at layer 20 (Z = 4.00 mm at 0.20 mm layers).
 - Back: "ADVENTURE COMPLETE · ESCAPE BACKPACK" around a compass, recessed 0.4 mm, in the body colour
-- Status as of 2026-09-26: not physically test-printed yet (per its README)
+- Current Norse revision: v3, updated 2026-10-05; no physical print of v3 recorded.
 
-Open: which parts stay the same across backpacks (size, the back, the style), and which change per theme.
+On 2026-10-05 the designer approved the Space digital medallion and asked to
+reuse its back on Norse and Hiking. These three models share the 50 mm body,
+4.4 mm total thickness and 0.4 mm engraved back; the front motif changes by theme.
+The approved back uses 4.6 mm Arial Bold capitals for ADVENTURE / COMPLETE and
+4.0 mm Arial Regular capitals for ESCAPE BACKPACK. Minimum adjacent brand-letter
+clearance is 0.831 mm in the curved layout. Exact profiles and print notes live
+with each model; the reusable builder is `EscapeBackpack/Tools/medallion_cad.py`.
+
+Later on 2026-10-05 the designer requested the same family for Space Station
+Aurora, Hockey Road Trip and Canada Exploration, selecting station symbol,
+puck/road and maple leaf/train fronts respectively. Their v1 digital models
+reuse the same back and dimensions; print files and validation live in each
+project's `assets/medallion/` directory. These versions are physically untested.
+
+Correction later that day: Aurora v2 replaces the station silhouette with the
+designer-supplied maple-leaf-and-orbit STATION / AURORA patch, also selected for
+public branding. Canada v2 replaces the first stylised leaf with the existing
+maple-leaf SVG outline; train and tracks are retained. v1 files remain as history.
+
+The designer reported poor S, B and K on an earlier print; its exact version
+and printer settings are unknown. Larger, more open lettering is approved
+geometry guidance, not a confirmed printing fix. Each new package includes a
+1.2 mm thick full-size back trial. Physical results remain to be recorded.
 
 ## Default locks (all backpacks)
 - 3-digit lock
