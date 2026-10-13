@@ -5,18 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
-<title>Backpack Design</title>
-<!-- Shared viewer from backpack-kit. Do not edit the copy in site/: it is overwritten on every build. -->
+<title>Adventure Design</title>
+<!-- Shared design board from backpack-kit. Do not edit the copy in site/: it is overwritten on every build.
+     Three tabs: Story (premise + beats), Puzzles, Props. Questions and assets show inside the record they're about. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <div><div class="eyebrow">Design board</div><h1 id="proj">Backpack</h1><div class="sub" id="sub"></div></div>
-  <a class="btn" href="play.html" title="Play the decided game from start to finish">▶ Play-test</a>
-  <input id="q" type="search" placeholder="Search records  ( / )" autocomplete="off">
+  <div><div class="eyebrow">Design board</div><h1 id="proj">Adventure</h1><div class="sub" id="sub"></div></div>
+  <div class="actions">
+    <a class="btn" href="play.html" title="Play the decided game from start to finish">▶ Play-test</a>
+    <a class="btn" href="print.html" title="Envelope labels and the cipher card, ready to print">Print envelopes</a>
+    <input id="q" type="search" placeholder="Search  ( / )" autocomplete="off" aria-label="Search records">
+  </div>
 </header>
 <nav id="tabs"></nav>
 <main id="view"></main>
@@ -39,270 +43,179 @@ const byId = Object.fromEntries(R.map(r => [r.id, r]));
 const REF = D.refFields;
 const back = {};  // target id -> [{from, field}]
 for (const r of R) for (const f of REF) for (const t of asList(r[f]).filter(t => t !== "start")) (back[t] ||= []).push({ from: r.id, field: f });
-const backOf = (id, field) => (back[id] || []).filter(b => !field || b.field === field).map(b => byId[b.from]);
+const backOf = (id, field) => (back[id] || []).filter(b => !field || b.field === field).map(b => byId[b.from]).filter(Boolean);
 const superseded = r => !!r.superseded_by;
 const active = r => r.status !== "parked" && !superseded(r);
 const ofType = t => R.filter(r => r.type === t);
 const BEAT = D.config.beatLabel || "Structure beat";
-const STATUS_ORDER = ["idea", "candidate", "decided", "built", "open", "answered", "parked"];
-const byTouched = (a, b) => b.touched.localeCompare(a.touched) || a.id.localeCompare(b.id);
+const STATUSES = ["idea", "candidate", "decided", "built"];
+const ENV = Object.fromEntries((D.envelopes?.envelopes || []).map(e => [e.puzzle, e]));
+const beats = () => ofType("beat").filter(active).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+// Questions show on the record they're about; assets on the prop they're for (else their first link).
+const questionsOn = id => ofType("question").filter(q => !superseded(q) && asList(q.about).includes(id));
+const openQ = id => questionsOn(id).filter(q => q.status === "open").length;
+const filesOn = id => ofType("asset").filter(a => !superseded(a) && (a.for ? a.for === id : asList(a.links)[0] === id));
 
 // ---------- helpers ----------
-const sColor = s => `var(--s-${STATUS_ORDER.includes(s) ? s : "idea"})`;
+const sColor = s => `var(--s-${["idea", "candidate", "decided", "built", "open", "answered", "parked"].includes(s) ? s : "idea"})`;
 const pill = s => `<span class="pill" style="color:${sColor(s)}">${esc(s || "no status")}</span>`;
-const ago = r => r.ageDays === 0 ? "today" : r.ageDays === 1 ? "yesterday" : `${r.ageDays} days ago`;
+const code = (e, cls = "") => e && e.code ? `<span class="sym ${cls}" title="Envelope code">${e.code.map(esc).join("")}</span>`
+  : `<span class="flag" title="${e && e.answer ? "The answer has characters the cipher can't encode" : "No answer yet"}">${e && e.answer ? "bad answer" : "no code"}</span>`;
 const refChip = id => {
-  if (id === "start") return '<span class="ref">Available at start</span>';
+  if (id === "start") return '<span class="ref">In the box from the start</span>';
   const r = byId[id];
   if (!r) return `<span class="ref missing" title="No record with this id">${esc(id)}</span>`;
-  return `<button type="button" class="ref" data-id="${esc(id)}" title="${esc(r.title)}"><span class="dot" style="background:${sColor(superseded(r) ? "superseded" : r.status)}"></span>${esc(id)} ${esc(r.title)}</button>`;
+  return `<button type="button" class="ref" data-id="${esc(id)}" title="${esc(r.title)}"><span class="dot" style="background:${sColor(superseded(r) ? "parked" : r.status)}"></span>${esc(id)} ${esc(r.title)}</button>`;
 };
 const refs = (label, ids) => ids.length ? `<div class="refs"><span class="lbl">${esc(label)}</span>${ids.map(refChip).join("")}</div>` : "";
 const kv = (label, v) => v == null || v === "" ? "" : `<div class="kv">${esc(label)}: <b>${esc(v)}</b></div>`;
 const dots = n => n ? "●".repeat(n) + "○".repeat(Math.max(0, 3 - n)) : "";
+const firstLine = b => (String(b || "").replace(/<!--[^]*?-->/g, "").split("\n").filter(l => !/^\s*#/.test(l))
+  .map(l => l.replace(/^[>*\-\d. ]+/, "").replace(/\*\*/g, "").trim()).find(Boolean) || "");
+const image = id => filesOn(id).find(a => a.kind === "image" && a.fileExists);
 
-let query = "";
+let query = "", status = "";
 function matches(r) {
   if (!query) return true;
-  const hay = [r.id, r.title, r.body, ...Object.entries(r).filter(([k, v]) => typeof v === "string" && !["body", "path"].includes(k)).map(([, v]) => v)].join(" ").toLowerCase();
+  const hay = [r.id, r.title, r.body, ...Object.values(r).filter(v => typeof v === "string")].join(" ").toLowerCase();
   return query.split(/\s+/).every(w => hay.includes(w));
 }
-const vis = list => list.filter(matches);
-
-function card(r, extra = "") {
-  return `<article class="card${r.stale ? " is-stale" : ""}" data-id="${esc(r.id)}">
-    <div class="top"><span class="rid">${esc(r.id)}</span>${pill(r.status)}${r.stale ? '<span class="flag">stale</span>' : ""}${r.dirty ? '<span class="flag dirty">uncommitted</span>' : ""}</div>
-    <h3>${esc(r.title)}</h3>${extra}
-    <div class="meta">touched ${ago(r)}</div></article>`;
-}
-const grid = (list, extraFn = () => "") => list.length ? `<div class="grid">${list.map(r => card(r, extraFn(r))).join("")}</div>` : `<div class="empty">Nothing here${query ? " matching the search" : ""}.</div>`;
-function parkedNote(type) {
-  const n = ofType(type).filter(r => !active(r)).length;
-  return n ? `<div class="note">${n} parked or superseded — see the <a href="#parked">Parked</a> tab.</div>` : "";
-}
-
-// type-specific card extras
-const EXTRA = {
-  premise: r => kv("aspect", r.aspect),
-  beat: r => kv("label", r.label) + kv("reveals", r.reveals) + refs("puzzles", backOf(r.id, "beat").map(x => x.id)),
-  puzzle: r => (r.beat ? refs(BEAT.toLowerCase(), [r.beat]) : "") + kv("lock", r.lock) + kv("mechanic", r.mechanic) + kv("difficulty", dots(r.difficulty)) + refs("needs", asList(r.needs)) + refs("props", asList(r.props)),
-  prop: r => kv("form", [r.form, r.source].filter(Boolean).join(" · ")) + (r.found_in === "start" ? kv("found in", "backpack, from the start") : r.found_in ? refs("found in", [r.found_in]) : "") + refs("used by", backOf(r.id, "props").map(x => x.id)) + refs("assets", backOf(r.id, "for").map(x => x.id)),
-  question: r => refs("about", asList(r.about)) + (r.answer ? kv("answer", r.answer) : ""),
-  asset: r => assetExtra(r, false),
+const shown = list => list.filter(r => matches(r) && (status === "parked" ? !active(r) : active(r) && (!status || r.status === status)));
+const signals = r => {
+  const q = openQ(r.id);
+  return q ? `<span class="flag" title="Open questions">${q} open question${q > 1 ? "s" : ""}</span>` : "";
 };
-function assetExtra(r, full) {
-  const made = r.file && r.fileExists;
-  let h = kv("kind", [r.kind, r.tool].filter(Boolean).join(" · ")) + (r.for ? refs("for", [r.for]) : "");
-  h += `<div class="made" style="color:${made ? "var(--s-built)" : "var(--muted)"}">${made ? "✓ made" : r.file ? "✗ file missing: " + esc(r.file) : "not made yet"}</div>`;
-  if (made && r.kind === "image") h += `<img class="thumb" src="files/${esc(r.file)}" alt="">`;
-  if (full && r.body) h += `<pre class="prompt" onclick="event.stopPropagation()">${esc(r.body)}</pre><div><button class="btn" data-copy="${esc(r.id)}">Copy prompt</button></div>`;
-  return h;
+
+function puzzleCard(r) {
+  const e = ENV[r.id];
+  return `<article class="card" data-id="${esc(r.id)}">
+    <div class="top"><span class="rid">${esc(r.id)}</span>${pill(r.status)}${signals(r)}</div>
+    <h3>${esc(r.title)}</h3>
+    <div class="excerpt">${esc(firstLine(r.body))}</div>
+    <div class="top">${r.mechanic ? `<span class="chip">${esc(r.mechanic)}</span>` : ""}${r.difficulty ? `<span class="chip">${esc(dots(r.difficulty))}</span>` : ""}
+      <span class="opens">opens ${code(e)}</span></div>
+    ${refs("needs", asList(r.props))}</article>`;
+}
+function propCard(r) {
+  const img = image(r.id);
+  return `<article class="card" data-id="${esc(r.id)}">
+    ${img ? `<img class="thumb wide" src="files/${esc(img.file)}" alt="" loading="lazy">` : ""}
+    <div class="top"><span class="rid">${esc(r.id)}</span>${pill(r.status)}${signals(r)}</div>
+    <h3>${esc(r.title)}</h3>
+    <div class="top">${[r.form, r.source].filter(Boolean).map(v => `<span class="chip">${esc(v)}</span>`).join("")}
+      ${r.envelope === "start" ? `<span class="chip">in the box</span>` : r.envelope ? `<span class="opens">in ${code(ENV[r.envelope])}</span>` : `<span class="flag">no envelope</span>`}</div>
+    ${refs("used by", backOf(r.id, "props").filter(active).map(x => x.id))}</article>`;
+}
+const grid = (list, fn) => list.length ? `<div class="grid">${list.map(fn).join("")}</div>` : `<div class="empty">Nothing here${query || status ? " matching the filter" : ""}.</div>`;
+function filters() {
+  return `<div class="pills" role="group" aria-label="Status">${["", ...STATUSES, "parked"].map(s =>
+    `<button type="button" data-status="${s}" aria-pressed="${status === s}">${s || "all"}</button>`).join("")}</div>`;
 }
 
 // ---------- tabs ----------
 const TABS = [
-  { key: "overview", label: "Overview", render: renderOverview },
-  { key: "premise", label: "Premise", count: () => ofType("premise").filter(active).length, render: renderPremise },
-  { key: "structure", label: "Structure", count: () => ofType("beat").filter(active).length, render: renderStructure },
-  { key: "flow", label: "Flow", render: renderFlow },
-  { key: "locks", label: "Locks", render: renderLocks },
+  { key: "story", label: "Story", count: () => ofType("premise").filter(active).length + beats().length, render: renderStory },
   { key: "puzzles", label: "Puzzles", count: () => ofType("puzzle").filter(active).length, render: renderPuzzles },
-  { key: "props", label: "Props", count: () => ofType("prop").filter(active).length, render: () => section("prop", "Props") },
-  { key: "reset", label: "Setup & reset", render: renderReset },
-  { key: "questions", label: "Questions", count: () => ofType("question").filter(r => active(r) && r.status !== "answered").length, render: renderQuestions },
-  { key: "decisions", label: "Decisions", count: () => decisions().length, render: renderDecisions },
-  { key: "parked", label: "Parked", count: () => R.filter(r => !active(r)).length, render: renderParked },
-  { key: "assets", label: "Assets", count: () => ofType("asset").filter(active).length, render: renderAssets },
+  { key: "props", label: "Props", count: () => ofType("prop").filter(active).length, render: renderProps },
 ];
-const TYPE_TAB = { premise: "premise", beat: "structure", puzzle: "puzzles", prop: "props", question: "questions", asset: "assets" };
-const TYPE_NAME = { premise: "Premise", beat: BEAT + "s", puzzle: "Puzzles", prop: "Props", question: "Questions", asset: "Assets" };
-const decisions = () => R.filter(r => ["decided", "built"].includes(r.status) && !superseded(r)).sort(byTouched);
+const TYPE_TAB = { premise: "story", beat: "story", puzzle: "puzzles", prop: "props", question: "story", asset: "props" };
+const TYPE_NAME = { premise: "Premise", beat: BEAT, puzzle: "Puzzle", prop: "Prop", question: "Question", asset: "File" };
 
-function section(type, title) {
-  return `<h2>${esc(title)}</h2>${parkedNote(type)}${grid(vis(ofType(type).filter(active)), EXTRA[type])}`;
+function problems() {
+  const w = D.warnings || [];
+  if (!w.length) return "";
+  return `<details class="warnbox"><summary>${w.length} problem${w.length > 1 ? "s" : ""} to fix (kit.py check)</summary><ul>${w.map(x =>
+    `<li>${x.id && byId[x.id] ? refChip(x.id) : `<code>${esc(x.file)}</code>`} ${esc(x.msg)}</li>`).join("")}</ul></details>`;
 }
 
-function renderOverview() {
-  if (query) {
-    const hits = vis(R);
-    return `<h2>Search results <span class="n">${hits.length}</span></h2>${grid(hits, r => EXTRA[r.type]?.(r) || "")}`;
-  }
-  let h = "";
-  const gaps = D.readiness || [], release = D.releaseReadiness || [];
-  h += `<h2>Readiness <span class="n">decided / built game</span></h2><div class="note">Design status is not test evidence. Draft candidates stay optional. Run <code>kit.py ready --include-candidates</code> to audit a prototype.</div>`;
-  for (const [title, issues] of [["Playtest preparation", gaps], ["Release evidence", release]]) {
-    h += `<details class="readiness"><summary>${title}: ${issues.length} gap(s)</summary>${issues.length ? `<ul>${issues.map(w => `<li>${w.id ? refChip(w.id) + " — " : ""}${esc(w.msg)}</li>`).join("")}</ul>` : `<p>No recorded gaps. This does not prove fairness or physical reliability.</p>`}</details>`;
-  }
-  if (D.warnings.length) {
-    h += `<h2>Problems to fix <span class="n">${D.warnings.length}</span></h2><div class="warnbox"><ul>${D.warnings.map(w =>
-      `<li><code>${esc(w.file)}</code> — ${esc(w.msg)}</li>`).join("")}</ul></div>`;
-  }
-  h += `<h2>Progress</h2><div class="stats">`;
-  for (const t of Object.keys(D.types)) {
-    const list = ofType(t).filter(r => !superseded(r));
-    const counts = {};
-    for (const r of list) counts[r.status] = (counts[r.status] || 0) + 1;
-    const keys = STATUS_ORDER.filter(s => counts[s]);
-    const done = t === "question" ? (counts.answered || 0) : (counts.built || 0) + (counts.decided || 0);
-    h += `<a class="stat" href="#${TYPE_TAB[t]}"><div class="big">${list.length}</div><div class="lab">${esc(TYPE_NAME[t])}${list.length ? ` · ${done} ${t === "question" ? "answered" : "decided or built"}` : ""}</div>
-      <div class="bar">${keys.map(s => `<span style="width:${counts[s] / list.length * 100}%;background:${sColor(s)}" title="${s}: ${counts[s]}"></span>`).join("")}</div>
-      <div class="legend">${keys.map(s => `<span><i style="background:${sColor(s)}"></i>${s} ${counts[s]}</span>`).join("")}</div></a>`;
-  }
-  h += `</div><div class="cols"><div>`;
-  const open = ofType("question").filter(r => r.status === "open" && !superseded(r)).sort(byTouched);
-  h += `<h2>Open questions <span class="n">${open.length}</span></h2>` + rows(open);
-  const stale = R.filter(r => r.stale).sort((a, b) => b.ageDays - a.ageDays);
-  h += `<h2>Stale <span class="n">${stale.length} · idea or candidate, untouched for over ${D.config.staleDays} days</span></h2>` + rows(stale, r => `${r.ageDays}d`);
-  h += `</div><div><h2>Recent changes</h2>`;
-  const ch = D.changes.slice(0, 10);
-  h += ch.length ? `<div class="rows">${ch.map(c => `<div class="row static"><span class="when">${c.uncommitted ? "now" : esc(c.date)}</span>
-      <span class="grow">${c.uncommitted ? "<i>Uncommitted edits</i>" : esc(c.subject)}<div class="refs" style="margin-top:3px">${c.ids.map(refChip).join("")}</div></span></div>`).join("")}</div>`
-    : `<div class="empty">No history yet.</div>`;
-  return h + `</div></div>`;
-}
-function rows(list, when = r => r.touched) {
-  if (!list.length) return `<div class="empty">None.</div>`;
-  return `<div class="rows">${list.map(r => `<div class="row" data-id="${esc(r.id)}"><span class="when">${esc(when(r))}</span>
-    <span class="grow"><span class="rid">${esc(r.id)}</span> ${esc(r.title)}</span>${pill(r.status)}</div>`).join("")}</div>`;
-}
-
-function renderPremise() {
-  const list = vis(ofType("premise").filter(active));
-  const order = ["sender", "player goal", "story", "tone", "ending", "other"];
-  const groups = {};
-  for (const r of list) (groups[(r.aspect || "other").toLowerCase()] ||= []).push(r);
-  const keys = Object.keys(groups).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
-  if (!keys.length) return `<h2>Premise</h2>${parkedNote("premise")}<div class="empty">Nothing here yet.</div>`;
-  return parkedNote("premise") + keys.map(k => `<h2>${esc(k[0].toUpperCase() + k.slice(1))}</h2>${grid(groups[k], r => "")}`).join("");
-}
-
-function renderStructure() {
-  const beats = vis(ofType("beat").filter(active)).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-  let h = `<h2>${esc(BEAT)}s <span class="n">in story order</span></h2>${parkedNote("beat")}`;
-  if (!beats.length) h += `<div class="empty">No ${esc(BEAT.toLowerCase())}s yet.</div>`;
-  for (const b of beats) {
+function renderStory() {
+  const prem = shown(ofType("premise"));
+  const order = ["sender", "player goal", "story", "tone", "ending"];
+  prem.sort((a, b) => ((order.indexOf((a.aspect || "").toLowerCase()) + 1) || 99) - ((order.indexOf((b.aspect || "").toLowerCase()) + 1) || 99));
+  let h = problems() + `<h2>Premise <span class="n">who sends it, why, the tone, the ending</span></h2>` + filters()
+    + grid(prem, r => `<article class="card" data-id="${esc(r.id)}"><div class="top"><span class="rid">${esc(r.aspect || "other")}</span>${pill(r.status)}${signals(r)}</div><h3>${esc(r.title)}</h3><div class="excerpt">${esc(firstLine(r.body))}</div></article>`);
+  h += `<h2>${esc(BEAT)}s <span class="n">the game in order · puzzles sit under their ${esc(BEAT.toLowerCase())}</span></h2><ol class="timeline">`;
+  for (const b of beats().filter(matches)) {
     const pz = backOf(b.id, "beat").filter(active);
-    h += `<section class="beat${b.stale ? " is-stale" : ""}"><div class="beat-h" data-id="${esc(b.id)}"><span class="ord">${esc(b.order ?? "?")}</span>
-      <h3>${esc(b.label ? b.label + " — " : "")}${esc(b.title)}</h3><span class="rid">${esc(b.id)}</span>${pill(b.status)}${b.stale ? '<span class="flag">stale</span>' : ""}</div>
-      ${b.reveals ? `<div class="reveals">Reveals: ${esc(b.reveals)}</div>` : ""}
-      ${pz.length ? `<div class="grid">${pz.map(p => card(p, EXTRA.puzzle(p))).join("")}</div>` : `<div class="reveals"><i>No puzzles attached.</i></div>`}</section>`;
+    h += `<li><div class="beat-h" data-id="${esc(b.id)}"><h3>${esc(b.title)}</h3><span class="sub">${esc(firstLine(b.body))}</span></div>
+      <div class="refs">${pz.map(p => `<button type="button" class="ref" data-id="${esc(p.id)}">${esc(p.id)} ${esc(p.title)} ${code(ENV[p.id])}</button>`).join("") || '<span class="empty">No puzzles yet.</span>'}</div></li>`;
   }
-  const loose = vis(ofType("puzzle").filter(r => active(r) && !byId[r.beat]));
-  if (loose.length) h += `<h2>Puzzles not attached to a ${esc(BEAT.toLowerCase())} <span class="n">${loose.length}</span></h2>${grid(loose, EXTRA.puzzle)}`;
+  h += `</ol>`;
+  const loose = ofType("question").filter(q => active(q) && q.status === "open" && !asList(q.about).length && matches(q));
+  if (loose.length) h += `<h2>Open questions about the whole adventure</h2>${loose.map(q => questionHTML(q)).join("")}`;
+  const files = ofType("asset").filter(a => active(a) && !a.for && !asList(a.links).length && matches(a));
+  if (files.length) h += `<h2>Other files</h2><div class="files">${files.map(fileHTML).join("")}</div>`;
   return h;
 }
 
-function renderFlow() {
-  const model = D.flow || {nodes: [], edges: []}, positions = {}, counts = {};
-  const maxLevel = Math.max(0, ...model.nodes.map(n => n.level));
-  for (const n of model.nodes) { const col = counts[n.level] || 0; counts[n.level] = col + 1; positions[n.id] = {x: 20 + col * 245, y: 30 + n.level * 135}; }
-  const width = Math.max(480, ...Object.values(counts).map(n => n * 245 + 20)), height = (maxLevel + 1) * 135 + 20;
-  const lines = model.edges.filter(e => positions[e.from] && positions[e.to]).map(e => {
-    const a = positions[e.from], b = positions[e.to];
-    return `<path d="M${a.x + 107} ${a.y + 92} C${a.x + 107} ${a.y + 120},${b.x + 107} ${b.y - 20},${b.x + 107} ${b.y}" fill="none" style="stroke:${e.kind === "needs" ? "var(--flow-needs)" : "var(--flow-use)"}" stroke-width="2" marker-end="url(#flow-arrow)" ${e.kind === "needs" ? 'stroke-dasharray="5 4"' : ""}/>`;
-  }).join("");
-  const nodes = model.nodes.map(n => {
-    const p = positions[n.id], words = n.title.match(/.{1,25}(?:\s|$)|.{1,25}/g) || [n.title];
-    return `<a href="#flow${n.id === "start" ? "" : "/" + n.id}" aria-label="${esc(n.id + " " + n.title)}"><rect x="${p.x}" y="${p.y}" width="214" height="92" rx="5" style="fill:${n.type === "puzzle" ? "var(--flow-a)" : "var(--flow-b)"};stroke:${n.blocked ? "var(--flow-block)" : "var(--flow-stroke)"}"/><text x="${p.x + 12}" y="${p.y + 20}" font-size="10" style="fill:var(--flow-id)">${esc(n.id)} · ${esc(n.type)}</text><text x="${p.x + 12}" y="${p.y + 41}" font-size="12" style="fill:var(--flow-title)">${words.slice(0,2).map((w,i) => `<tspan x="${p.x + 12}" dy="${i ? 16 : 0}">${esc(w.trim())}</tspan>`).join("")}</text><text x="${p.x + 12}" y="${p.y + 80}" font-size="10" style="fill:var(--flow-status)">${esc(n.blocked ? "Blocked / availability unresolved" : n.status)}</text></a>`;
-  }).join("");
-  const blocked = model.nodes.filter(n => n.blocked);
-  return `<h2>Puzzle and prop flow</h2><p class="note">Includes active ideas and candidates. Solid arrows: prop use / reveal. Dashed arrows: prerequisite puzzles. All incoming requirements must be met. Click a box for its record. Missing inputs and cycles stay unresolved.</p>${blocked.length ? `<div class="warnbox">Unresolved: ${blocked.map(n => refChip(n.id)).join(" ")}</div>` : ""}<div class="flow-scroll"><svg role="img" aria-label="Puzzle and prop dependency diagram" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" style="fill:var(--flow-use)"/></marker></defs>${lines}${nodes}</svg></div><details class="readiness"><summary>Connections as text</summary><ul>${model.edges.map(e => `<li>${refChip(e.from)} → ${refChip(e.to)} (${esc(e.kind)})</li>`).join("")}</ul></details>`;
-}
-
-function renderReset() {
-  const props = vis(ofType("prop").filter(active));
-  const note = (r, title) => mdSection(r.body, title).replace(/<!--[^]*?-->/g, "").trim();
-  return `<h2>Setup & reset</h2><p class="note">Generated from prop records, including drafts. Availability and physical location are different: found_in controls when a prop is acquired; container says where it belongs.</p><div class="flow-scroll"><table class="reset-table"><thead><tr><th>Prop / status</th><th>Location / availability</th><th>Starting state</th><th>Reset</th><th>Replacement</th></tr></thead><tbody>${props.map(r => `<tr><td>${refChip(r.id)}<br>${pill(r.status)}</td><td>${esc(r.container || "Not recorded")}<br>${r.found_in === "start" ? "Available at start" : r.found_in ? refChip(r.found_in) : "Availability unknown"}</td>${["Starting state","Reset","Replacement"].map(s => `<td>${note(r,s) ? md(note(r,s),refChip) : '<span class="flag">Not recorded</span>'}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-}
-
-function renderLocks() {
-  const props = ofType("prop").filter(active);
-  const chips = ids => ids.length ? `<div class="refs">${ids.map(refChip).join("")}</div>` : '<span class="flag">None recorded</span>';
-  const fold = ids => ids.length > 8 ? `<details><summary>${ids.length} props</summary>${chips(ids)}</details>` : chips(ids);
-  const inside = id => props.filter(p => p.found_in === id).map(p => p.id);
-  const start = props.filter(p => p.found_in === "start");
-  const startWhere = [...new Set(start.map(p => p.container).filter(Boolean))];
-  let n = 0;
-  const rows = (D.playOrder || []).map(id => byId[id]).filter(r => r && active(r)).map(r => {
-    const lock = r.lock ? `<b>Lock ${++n}</b><br>${esc(r.lock)}${r.answer ? ` · <span class="spoiler" title="Click to reveal">${esc(r.answer)}</span>` : ""}` : "No lock";
-    return `<tr><td>${lock}<br>${refChip(r.id)}</td><td>${r.container ? esc(r.container) : '<span class="flag">Not recorded</span>'}</td><td>${chips(inside(r.id))}</td><td>${fold(asList(r.props))}</td></tr>`;
-  }).join("");
-  return `<h2>Locks</h2><p class="note">Play order, worked out from found_in, needs and props (candidates included). Compartment is the puzzle's <code>container</code> field; Inside is every prop whose found_in is that puzzle.</p><div class="flow-scroll"><table class="reset-table"><thead><tr><th>Lock</th><th>Compartment</th><th>Inside</th><th>Needed for the code</th></tr></thead><tbody><tr><td><b>Start</b></td><td>${startWhere.length ? startWhere.map(esc).join("<br>") : '<span class="flag">Not recorded</span>'}</td><td>${chips(start.map(p => p.id))}</td><td>—</td></tr>${rows}</tbody></table></div>`;
-}
-
-const filt = { status: "", beat: "", lock: "" };
 function renderPuzzles() {
-  const all = ofType("puzzle").filter(active);
-  const beats = ofType("beat").filter(active).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-  const list = vis(all).filter(r => (!filt.status || r.status === filt.status) && (!filt.beat || (filt.beat === "-" ? !r.beat : r.beat === filt.beat))
-    && (!filt.lock || (filt.lock === "-" ? !r.lock : r.lock === filt.lock)));
-  const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`;
-  return `<h2>Puzzles <span class="n">${list.length} of ${all.length}</span></h2>${parkedNote("puzzle")}
-    <div class="filters">Status <select data-filt="status">${opt("", "all", filt.status)}${["idea", "candidate", "decided", "built"].map(s => opt(s, s, filt.status)).join("")}</select>
-    ${esc(BEAT)} <select data-filt="beat">${opt("", "all", filt.beat)}${beats.map(b => opt(b.id, `${b.order ?? "?"}. ${b.title}`, filt.beat)).join("")}${opt("-", "none", filt.beat)}</select>
-    Lock <select data-filt="lock">${opt("", "all", filt.lock)}${(D.config.locks || []).map(l => opt(l, l, filt.lock)).join("")}${opt("-", "none", filt.lock)}</select>
-    <span style="color:var(--muted)">${all.filter(r => r.lock).length} with a lock</span></div>
-    ${grid(list, EXTRA.puzzle)}`;
+  const list = shown(ofType("puzzle"));
+  let h = problems() + `<h2>Puzzles <span class="n">${list.length} shown · cipher: ${esc(D.cipher?.name || "none")}</span></h2>` + filters();
+  for (const b of beats()) {
+    const group = list.filter(p => p.beat === b.id);
+    if (group.length) h += `<h3 class="group">${esc(b.order ?? "")} · ${esc(b.title)}</h3>${grid(group, puzzleCard)}`;
+  }
+  const loose = list.filter(p => !beats().some(b => b.id === p.beat));
+  if (loose.length) h += `<h3 class="group">No ${esc(BEAT.toLowerCase())} yet</h3>${grid(loose, puzzleCard)}`;
+  if (!list.length) h += `<div class="empty">Nothing here${query || status ? " matching the filter" : ""}.</div>`;
+  return h;
 }
 
-function renderQuestions() {
-  const q = vis(ofType("question").filter(active));
-  const open = q.filter(r => r.status !== "answered").sort(byTouched), done = q.filter(r => r.status === "answered").sort(byTouched);
-  return `<h2>Open <span class="n">${open.length}</span></h2>${parkedNote("question")}${grid(open, EXTRA.question)}
-    <h2>Answered <span class="n">${done.length}</span></h2>${grid(done, EXTRA.question)}`;
-}
-
-function renderDecisions() {
-  const list = vis(decisions());
-  return `<h2>Decided and built <span class="n">${list.length} · newest first</span></h2>
-    <div class="note">Sorted by the date the record was last touched.</div>${list.length ? `<div class="rows">${list.map(r => `<div class="row" data-id="${esc(r.id)}">
-    <span class="when">${esc(r.touched)}</span><span class="grow"><span class="rid">${esc(r.id)}</span> ${esc(r.title)} <span class="kv">· ${esc(TYPE_NAME[r.type] || r.type)}</span></span>${pill(r.status)}</div>`).join("")}</div>` : `<div class="empty">Nothing decided yet.</div>`}`;
-}
-
-function renderParked() {
-  const parked = vis(R.filter(r => r.status === "parked" && !superseded(r))).sort(byTouched);
-  const sup = vis(R.filter(superseded)).sort(byTouched);
-  return `<h2>Parked <span class="n">${parked.length}</span></h2>${grid(parked, r => kv("type", TYPE_NAME[r.type]))}
-    <h2>Superseded <span class="n">${sup.length}</span></h2>${grid(sup, r => kv("type", TYPE_NAME[r.type]) + refs("replaced by", [r.superseded_by]))}`;
-}
-
-function renderAssets() {
-  const list = vis(ofType("asset").filter(active));
-  const todo = list.filter(r => !(r.file && r.fileExists)), made = list.filter(r => r.file && r.fileExists);
-  const ex = r => assetExtra(r, true);
-  return `<h2>Not made yet <span class="n">${todo.length}</span></h2>${parkedNote("asset")}${grid(todo, ex)}<h2>Made <span class="n">${made.length}</span></h2>${grid(made, ex)}`;
+function renderProps() {
+  const list = shown(ofType("prop"));
+  const start = list.filter(p => p.envelope === "start");
+  let h = problems() + `<h2>Props <span class="n">${list.length} shown · grouped by the envelope they're in</span></h2>` + filters();
+  if (start.length) h += `<h3 class="group">In the box from the start</h3>${grid(start, propCard)}`;
+  for (const e of D.envelopes?.envelopes || []) {
+    const inside = list.filter(p => p.envelope === e.puzzle);
+    if (inside.length) h += `<h3 class="group">Envelope ${code(e)} <span class="n">opened by ${esc(e.puzzle)} ${esc(e.title)}</span></h3>${grid(inside, propCard)}`;
+  }
+  const loose = list.filter(p => p.envelope !== "start" && !ENV[p.envelope]);
+  if (loose.length) h += `<h3 class="group">Not in an envelope yet</h3>${grid(loose, propCard)}`;
+  if (!list.length) h += `<div class="empty">Nothing here${query || status ? " matching the filter" : ""}.</div>`;
+  return h;
 }
 
 // ---------- detail drawer ----------
-const HIDE = new Set(["id", "title", "type", "status", "body", "path", "touched", "ageDays", "dirty", "stale", "history", "fileExists"]);
+const HIDE = new Set(["id", "title", "type", "status", "body", "path", "touched", "ageDays", "dirty", "stale", "history", "fileExists", "answer", "file", "for"]);
+function fileHTML(a) {
+  const img = a.kind === "image" && a.fileExists;
+  return `<div class="file" data-id="${esc(a.id)}">${img ? `<img src="files/${esc(a.file)}" alt="" loading="lazy">` : `<div class="ph">${esc(a.kind || "file")}</div>`}
+    <span class="fname">${esc(a.title)}</span><span class="rid">${a.file ? (a.fileExists ? esc(a.file) : "missing: " + esc(a.file)) : "not made yet"}</span></div>`;
+}
+function questionHTML(q) {
+  return `<div class="question${q.status === "open" ? " open" : ""}" data-id="${esc(q.id)}"><div class="top"><span class="rid">${esc(q.id)}</span>${pill(q.status)}</div>
+    <div><b>${esc(q.title)}</b></div>${q.answer ? `<div class="answer">${inline(q.answer, refChip)}</div>` : ""}</div>`;
+}
 function openDetail(id) {
   const r = byId[id];
   if (!r) return;
   let h = `<button class="btn close" data-close>Close ✕</button>
-    <div class="top"><span class="rid">${esc(r.id)}</span>${pill(r.status)}<span class="kv">${esc(TYPE_NAME[r.type] || r.type)}</span>${r.stale ? '<span class="flag">stale</span>' : ""}${r.dirty ? '<span class="flag dirty">uncommitted</span>' : ""}</div>
+    <div class="top"><span class="rid">${esc(TYPE_NAME[r.type] || r.type)} · ${esc(r.id)}</span>${pill(superseded(r) ? "parked" : r.status)}</div>
     <h2>${esc(r.title)}</h2>`;
-  if (superseded(r)) h += `<div class="warnbox" style="margin-bottom:12px">Superseded by ${refChip(r.superseded_by)}</div>`;
-  const fields = Object.entries(r).filter(([k, v]) => !HIDE.has(k) && !(v == null || v === "" || (Array.isArray(v) && !v.length)));
-  if (fields.length) {
-    h += `<dl class="fields">${fields.map(([k, v]) => {
-      let val = REF.includes(k) && v !== "start" ? `<div class="refs">${asList(v).map(refChip).join("")}</div>`
-        : k === "answer" && r.type === "puzzle" ? `<span class="spoiler" title="Click to reveal">${esc(v)}</span>`
-        : k === "difficulty" ? `${esc(dots(v))} (${esc(v)})`
-        : esc(Array.isArray(v) ? v.join(", ") : v);
-      return `<dt>${esc(k.replace(/_/g, " "))}</dt><dd>${val}</dd>`;
-    }).join("")}</dl>`;
+  if (superseded(r)) h += `<div class="warnbox">Replaced by ${refChip(r.superseded_by)}</div>`;
+  if (r.type === "puzzle") {
+    const e = ENV[r.id];
+    h += `<div class="envelope"><div><div class="kv">Answer</div><span class="spoiler big" title="Click to reveal">${esc(r.answer || "—")}</span></div><div class="arrow">→</div>
+      <div><div class="kv">Opens envelope</div>${code(e, "big")}</div></div>`;
+    if (e) h += e.contents.length ? refs("inside", e.contents) : `<div class="refs"><span class="lbl">inside</span><span class="flag">nothing yet: set a prop's envelope to ${esc(r.id)}</span></div>`;
   }
-  if (r.type === "beat") h += `<div class="sec">Puzzles in this ${esc(BEAT.toLowerCase())}</div>` + (refs("", backOf(r.id, "beat").map(x => x.id)) || `<div class="empty">None.</div>`);
-  if (r.type === "asset") h += `<div class="sec">Prompt</div>${r.body ? `<pre class="prompt">${esc(r.body)}</pre><p><button class="btn" data-copy="${esc(r.id)}">Copy prompt</button></p>` : `<div class="empty">No prompt yet.</div>`}`
-    + (r.file && r.fileExists && r.kind === "image" ? `<p><img class="thumb" style="max-height:320px" src="files/${esc(r.file)}" alt=""></p>` : "");
-  else if (r.body) h += `<div class="sec">Notes</div><div class="md">${md(r.body, refChip)}</div>`;
-  const bl = back[r.id] || [];
-  if (bl.length) {
-    const groups = {};
-    for (const b of bl) (groups[b.field] ||= []).push(b.from);
-    const lbl = { links: "linked from", superseded_by: "replaces", beat: "puzzles in this beat", props: "used by puzzles", needs: "needed by", found_in: "opens to reveal", about: "questions about this", for: "assets for this" };
-    h += `<div class="sec">Referenced by</div>` + Object.entries(groups).map(([f, ids]) => refs(lbl[f] || f, ids)).join("");
-  }
+  if (r.type === "prop") h += (r.envelope === "start" ? refs("in", ["start"]) : r.envelope ? `<div class="refs"><span class="lbl">in envelope</span>${code(ENV[r.envelope])}${refChip(r.envelope)}</div>` : `<div class="refs"><span class="flag">not in an envelope yet</span></div>`)
+    + refs("used by", backOf(r.id, "props").map(x => x.id));
+  if (r.type === "beat") h += refs("puzzles", backOf(r.id, "beat").filter(active).map(x => x.id));
+  const fields = Object.entries(r).filter(([k, v]) => !HIDE.has(k) && !(r.type === "prop" && k === "envelope") && !(v == null || v === "" || (Array.isArray(v) && !v.length)));
+  if (fields.length) h += `<dl class="fields">${fields.map(([k, v]) => `<dt>${esc(k.replace(/_/g, " "))}</dt><dd>${
+    REF.includes(k) ? `<div class="refs">${asList(v).map(refChip).join("")}</div>` : k === "difficulty" ? `${esc(dots(v))} (${esc(v)})` : esc(Array.isArray(v) ? v.join(", ") : v)}</dd>`).join("")}</dl>`;
+  if (r.type === "question" && r.answer) h += `<div class="sec">Answer</div><div class="md">${inline(r.answer, refChip)}</div>`;
+  if (r.type === "asset") {
+    h += r.kind === "image" && r.fileExists ? `<p><img class="thumb" style="max-height:340px" src="files/${esc(r.file)}" alt=""></p>` : "";
+    h += `<div class="sec">Prompt / notes</div>${r.body ? `<pre class="prompt">${esc(r.body)}</pre>` : `<div class="empty">None.</div>`}`;
+  } else if (r.body) h += `<div class="sec">Notes</div><div class="md">${md(r.body, refChip)}</div>`;
+  const files = filesOn(r.id);
+  if (files.length) h += `<div class="sec">Files</div><div class="files">${files.map(fileHTML).join("")}</div>`;
+  const qs = questionsOn(r.id);
+  if (qs.length) h += `<div class="sec">Questions <span class="n">${openQ(r.id)} open</span></div>${qs.map(questionHTML).join("")}`;
   h += `<div class="sec">History</div>`;
   h += r.history.length ? `<div class="rows">${r.dirty ? `<div class="row static"><span class="when">now</span><span class="grow"><i>uncommitted edits</i></span></div>` : ""}${r.history.map(c =>
     `<div class="row static"><span class="when">${esc(c.date)}</span><span class="grow">${esc(c.subject)}</span></div>`).join("")}</div>` : `<div class="empty">Not committed yet.</div>`;
@@ -313,44 +226,35 @@ function openDetail(id) {
 function closeDetail() { $("#drawer").hidden = true; $("#scrim").hidden = true; }
 
 // ---------- routing & events ----------
+let current = TABS[0];
 function route() {
   const [tab, id] = decodeURIComponent(location.hash.slice(1)).split("/");
-  const t = TABS.find(x => x.key === tab) || TABS[0];
-  $("#tabs").innerHTML = TABS.map(x => `<a href="#${x.key}" class="${x === t ? "on" : ""}">${x.label}${x.count ? `<span class="n">${x.count()}</span>` : ""}</a>`).join("");
+  const t = TABS.find(x => x.key === tab) || (byId[tab] && TABS.find(x => x.key === TYPE_TAB[byId[tab].type])) || TABS[0];
+  $("#tabs").innerHTML = TABS.map(x => `<a href="#${x.key}" class="${x === t ? "on" : ""}">${x.label}<span class="n">${x.count()}</span></a>`).join("");
   $("#view").innerHTML = t.render();
-  if (id) openDetail(id); else closeDetail();
+  if (id || byId[tab]) openDetail(id || tab); else closeDetail();
   return t;
 }
-let current = TABS[0];
-function show(id) { location.hash = `${current.key}/${id}`; }
-
+const rerender = () => { $("#view").innerHTML = current.render(); };
 document.addEventListener("click", e => {
-  const copy = e.target.closest("[data-copy]");
-  if (copy) {
-    const r = byId[copy.dataset.copy];
-    navigator.clipboard?.writeText(r.body).then(() => { copy.textContent = "Copied ✓"; setTimeout(() => copy.textContent = "Copy prompt", 1500); });
-    e.stopPropagation(); return;
-  }
   const sp = e.target.closest(".spoiler");
   if (sp) { sp.classList.toggle("shown"); return; }
   if (e.target.closest("[data-close]") || e.target.id === "scrim") { location.hash = current.key; return; }
+  const st = e.target.closest("[data-status]");
+  if (st) { status = st.dataset.status; rerender(); return; }
   const el = e.target.closest("[data-id]");
-  if (el) show(el.dataset.id);
+  if (el) location.hash = `${current.key}/${el.dataset.id}`;
 });
-document.addEventListener("change", e => {
-  const f = e.target.dataset.filt;
-  if (f) { filt[f] = e.target.value; $("#view").innerHTML = current.render(); }
-});
-$("#q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); $("#view").innerHTML = current.render(); });
+$("#q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); rerender(); });
 document.addEventListener("keydown", e => {
   if (e.key === "/" && document.activeElement !== $("#q")) { e.preventDefault(); $("#q").focus(); }
-  if (e.key === "Escape") { if (!$("#drawer").hidden) location.hash = current.key; else if (query) { $("#q").value = ""; query = ""; $("#view").innerHTML = current.render(); } }
+  if (e.key === "Escape") { if (!$("#drawer").hidden) location.hash = current.key; else if (query) { $("#q").value = ""; query = ""; rerender(); } }
 });
 window.addEventListener("hashchange", () => { current = route(); });
 
 $("#proj").textContent = D.config.name;
-document.title = D.config.name + " — design";
-$("#sub").textContent = `${R.length} records · built ${D.builtAt}` + (D.warnings.length ? ` · ${D.warnings.length} problem(s), see Overview` : "");
+document.title = D.config.name + " · design";
+$("#sub").textContent = `${R.length} records · built ${D.builtAt}` + (D.warnings.length ? ` · ${D.warnings.length} problem(s)` : "");
 current = route();
 </script>
 </body>

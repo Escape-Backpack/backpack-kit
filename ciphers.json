@@ -1,0 +1,17 @@
+{
+  "_about": "Cipher presets. A backpack picks one in backpack.json (\"cipher\": {\"preset\": \"planets\"}) or defines its own \"symbols\". Each character of an answer is looked up here; the symbols are printed on the envelope it opens. Symbols must all be different.",
+  "planets": {
+    "name": "Planet symbols",
+    "symbols": { "0": "☉", "1": "☽", "2": "☿", "3": "♀", "4": "♁", "5": "♂", "6": "♃", "7": "♄", "8": "♅", "9": "♆" },
+    "labels":  { "0": "Sun", "1": "Moon", "2": "Mercury", "3": "Venus", "4": "Earth", "5": "Mars", "6": "Jupiter", "7": "Saturn", "8": "Uranus", "9": "Neptune" }
+  },
+  "runes": {
+    "name": "Runes",
+    "symbols": { "0": "ᚠ", "1": "ᚢ", "2": "ᚦ", "3": "ᚨ", "4": "ᚱ", "5": "ᚲ", "6": "ᚷ", "7": "ᚹ", "8": "ᚺ", "9": "ᚾ" },
+    "labels":  { "0": "fehu", "1": "uruz", "2": "thurisaz", "3": "ansuz", "4": "raido", "5": "kaunan", "6": "gebo", "7": "wunjo", "8": "hagalaz", "9": "naudiz" }
+  },
+  "shapes": {
+    "name": "Shapes",
+    "symbols": { "0": "●", "1": "▲", "2": "■", "3": "◆", "4": "★", "5": "✚", "6": "☾", "7": "♥", "8": "♣", "9": "♠" }
+  }
+}

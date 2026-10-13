@@ -9,7 +9,7 @@
 <!-- Shared play-test page from backpack-kit. Built from the records: nothing here is hand-maintained. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
 .controls { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; font: 11px var(--mono);
@@ -77,6 +77,8 @@ if (!D) { document.body.innerHTML = "<main><h2>No data.js found</h2><p>Run kit.p
 const R = D.records;
 const byId = Object.fromEntries(R.map(r => [r.id, r]));
 const KEY = "bp-play:" + D.config.name;
+const ENV = Object.fromEntries((D.envelopes?.envelopes || []).map(e => [e.puzzle, e]));
+const codeOf = id => ENV[id]?.code ? `<span class="sym">${ENV[id].code.map(esc).join("")}</span>` : "";
 
 // ---------- state (per tester, in this browser only) ----------
 let S = { done: {}, hints: {}, order: [], cand: false, names: false, fresh: [] };
@@ -90,19 +92,19 @@ function model() {
   const props = R.filter(r => r.type === "prop" && ok(r));
   const inGame = new Set([...puzzles, ...props].map(r => r.id));
   const opened = id => !!S.done[id];
-  const inHand = props.filter(p => p.found_in === "start" || (p.found_in && opened(p.found_in)));
+  const inHand = props.filter(p => p.envelope === "start" || (p.envelope && opened(p.envelope)));
   const handIds = new Set(inHand.map(p => p.id));
   const ready = (p, done, hand) => asList(p.needs).every(n => done.has(n)) && asList(p.props).every(x => hand.has(x));
   const doneSet = new Set(Object.keys(S.done));
   const open = puzzles.filter(p => !opened(p.id) && ready(p, doneSet, handIds));
 
-  // Designer checks: replay the whole game assuming every lock is solved.
-  const simDone = new Set(), simHand = new Set(props.filter(p => p.found_in === "start").map(p => p.id));
+  // Designer checks: replay the whole game assuming every puzzle is solved.
+  const simDone = new Set(), simHand = new Set(props.filter(p => p.envelope === "start").map(p => p.id));
   for (let grew = true; grew;) {
     grew = false;
     for (const p of puzzles) if (!simDone.has(p.id) && ready(p, simDone, simHand)) {
       simDone.add(p.id); grew = true;
-      for (const x of props) if (x.found_in === p.id) simHand.add(x.id);
+      for (const x of props) if (x.envelope === p.id) simHand.add(x.id);
     }
   }
   const checks = [];
@@ -110,15 +112,15 @@ function model() {
     if (!simDone.has(p.id)) {
       const why = [...asList(p.needs).filter(n => !simDone.has(n)).map(n => `needs ${n}${inGame.has(n) ? "" : " (not in the game at this status)"}`),
                    ...asList(p.props).filter(x => !simHand.has(x)).map(x => `prop ${x} ${inGame.has(x) ? "never reached" : "not in the game at this status"}`)];
-      checks.push(`${p.id} ${p.title}: can never be opened (${why.join(", ") || "unknown"})`);
+      checks.push(`${p.id} ${p.title}: can never be solved (${why.join(", ") || "unknown"})`);
     }
     if (!p.answer) checks.push(`${p.id} ${p.title}: no answer recorded, so testers can only skip it`);
-    if (!p.lock) checks.push(`${p.id} ${p.title}: no lock type set`);
+    else if (!ENV[p.id]?.code) checks.push(`${p.id} ${p.title}: answer ${p.answer} can't be turned into an envelope code with the ${D.cipher?.name || ""} cipher`);
     for (const x of asList(p.props)) if (!inGame.has(x)) checks.push(`${p.id} uses ${x}, which isn't in the game at this status`);
   }
   for (const x of props) {
-    if (!x.found_in) checks.push(`${x.id} ${x.title}: no found_in, so the player never gets it`);
-    else if (x.found_in !== "start" && !inGame.has(x.found_in)) checks.push(`${x.id} ${x.title}: found in ${x.found_in}, which isn't in the game at this status`);
+    if (!x.envelope) checks.push(`${x.id} ${x.title}: no envelope, so the player never gets it`);
+    else if (x.envelope !== "start" && !inGame.has(x.envelope)) checks.push(`${x.id} ${x.title}: in the envelope of ${x.envelope}, which isn't in the game at this status`);
     if (!view(x).has) checks.push(`${x.id} ${x.title}: nothing for the player to see yet (no "## Player sees" text or image asset)`);
   }
   return { puzzles, props, inHand, open, checks };
@@ -129,7 +131,7 @@ function view(prop) {
   return { imgs, text, has: imgs.length > 0 || !!text };
 }
 const norm = s => String(s ?? "").toLowerCase().replace(/[\s\-_.,:;/|]+/g, "");
-const lockName = p => (p.lock ? `${p.lock} lock` : "Lock") ;
+const lockName = p => "Puzzle";
 
 // ---------- render ----------
 function render() {
@@ -139,25 +141,25 @@ function render() {
   if (!total) {
     h += `<h2>Nothing to play yet</h2><div class="note">The play-test uses puzzles and props with status <b>decided</b> or <b>built</b>${S.cand ? " or <b>candidate</b>" : ""}. Tick "Include candidates" to try the ideas that are further along.</div>`;
   } else {
-    h += `<div class="progress"><div class="lab">${doneN} of ${total} locks open</div><div class="bar"><span style="width:${doneN / total * 100}%;background:var(--brass)"></span></div></div>`;
-    if (doneN === total) h += `<div class="done-banner"><div class="eyebrow">Adventure complete</div><h2>Every lock is open.</h2><div class="note">Everything you found is below.</div></div>`;
+    h += `<div class="progress"><div class="lab">${doneN} of ${total} envelopes open</div><div class="bar"><span style="width:${doneN / total * 100}%;background:var(--brass)"></span></div></div>`;
+    if (doneN === total) h += `<div class="done-banner"><div class="eyebrow">Adventure complete</div><h2>Every envelope is open.</h2><div class="note">Everything you found is below.</div></div>`;
     else {
-      h += `<h2>Locks you can try <span class="n">${M.open.length}</span></h2>`;
+      h += `<h2>Puzzles you can solve <span class="n">${M.open.length}</span></h2><p class="note">Type the answer: the cipher tells you which envelope to open.</p>`;
       h += M.open.length ? `<div class="grid">${M.open.map(lockCard).join("")}</div>`
-        : `<div class="warnbox">You're stuck: no lock can be tried with what's in your hands. See the designer checks below.</div>`;
+        : `<div class="warnbox">You're stuck: no puzzle can be solved with what's in your hands. See the designer checks below.</div>`;
     }
   }
   const fresh = new Set(S.fresh);
   const hand = [...M.inHand].sort((a, b) => (fresh.has(b.id) - fresh.has(a.id)) || a.title.localeCompare(b.title));
   h += `<h2>In your hands <span class="n">${hand.length}</span></h2>`;
-  h += hand.length ? `<div class="grid">${hand.map(p => propCard(p, fresh.has(p.id))).join("")}</div>` : `<div class="empty">Nothing yet. Props marked found_in: start appear here.</div>`;
+  h += hand.length ? `<div class="grid">${hand.map(p => propCard(p, fresh.has(p.id))).join("")}</div>` : `<div class="empty">Nothing yet. Props with envelope: start appear here.</div>`;
   if (S.order.length) {
     h += `<h2>Opened so far</h2><div class="rows log">${S.order.filter(id => S.done[id]).map((id, i) => {
-      const p = byId[id], got = M.props.filter(x => x.found_in === id);
-      return `<div class="row"><span class="when">${i + 1}. ${S.done[id] === "skip" ? "skipped" : "opened"}</span><span class="grow">${esc(p ? (S.names ? `${p.id} ${p.title}` : lockName(p)) : id)}${got.length ? ` → found ${got.map(x => esc(x.title)).join(", ")}` : ""}</span></div>`;
+      const p = byId[id], got = M.props.filter(x => x.envelope === id);
+      return `<div class="row"><span class="when">${i + 1}. ${S.done[id] === "skip" ? "skipped" : "opened"}</span><span class="grow">${esc(p ? (S.names ? `${p.id} ${p.title}` : lockName(p)) : id)} → envelope ${codeOf(id) || "?"}${got.length ? ` → found ${got.map(x => esc(x.title)).join(", ")}` : ""}</span></div>`;
     }).join("")}</div>`;
   }
-  h += `<details class="checks"${M.checks.length && S.names ? " open" : ""}><summary>Designer checks · ${M.checks.length}</summary>${M.checks.length ? `<ul>${M.checks.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : `<p class="note">No problems: every lock can be reached and every prop appears.</p>`}</details>`;
+  h += `<details class="checks"${M.checks.length && S.names ? " open" : ""}><summary>Designer checks · ${M.checks.length}</summary>${M.checks.length ? `<ul>${M.checks.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : `<p class="note">No problems: every puzzle can be reached and every prop appears.</p>`}</details>`;
   $("#view").innerHTML = h;
 }
 function lockCard(p) {
@@ -166,10 +168,10 @@ function lockCard(p) {
   return `<div class="lock" data-p="${esc(p.id)}">
     <div class="top">${S.names ? `<span class="rid">${esc(p.id)}</span>` : ""}<span class="kv">${esc(lockName(p))}</span></div>
     ${S.names ? `<h3>${esc(p.title)}</h3>` : ""}
-    <form class="try"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${p.lock && /letter/.test(p.lock) ? "WORD" : "code"}"><button class="btn">Try</button></form>
+    <form class="try"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="answer"><button class="btn">Try</button></form>
     <div class="fb"></div>
     ${hints.slice(0, shown).map((t, i) => `<div class="hint"><b>Hint ${i + 1}.</b> ${inline(t)}</div>`).join("")}
-    <div class="row2">${shown < hints.length ? `<button class="btn quiet" data-hint>Hint ${shown + 1} of ${hints.length}</button>` : ""}<button class="btn quiet" data-skip title="Open it without the code">Skip</button></div>
+    <div class="row2">${shown < hints.length ? `<button class="btn quiet" data-hint>Hint ${shown + 1} of ${hints.length}</button>` : ""}<button class="btn quiet" data-skip title="Open its envelope without the answer">Skip</button></div>
   </div>`;
 }
 function propCard(p, isNew) {
@@ -189,7 +191,7 @@ function openProp(id) {
 // ---------- events ----------
 function solve(id, how) {
   S.done[id] = how; S.order.push(id);
-  S.fresh = R.filter(x => x.type === "prop" && x.found_in === id).map(x => x.id);
+  S.fresh = R.filter(x => x.type === "prop" && x.envelope === id).map(x => x.id);
   save(); render();
 }
 document.addEventListener("submit", e => {
@@ -197,7 +199,7 @@ document.addEventListener("submit", e => {
   const card = e.target.closest("[data-p]"), p = byId[card.dataset.p], input = card.querySelector("input");
   if (p.answer && norm(input.value) === norm(p.answer)) return solve(p.id, "code");
   const fb = card.querySelector(".fb");
-  fb.className = "fb no"; fb.textContent = p.answer ? "The lock doesn't open." : "No answer recorded for this lock yet. Use Skip.";
+  fb.className = "fb no"; fb.textContent = p.answer ? "That doesn't match any envelope." : "No answer recorded for this puzzle yet. Use Skip.";
   input.select();
 });
 document.addEventListener("click", e => {

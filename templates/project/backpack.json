@@ -1,5 +1,6 @@
 {
   "name": "{{name}}",
   "beatLabel": "Structure beat",
-  "staleDays": 30
+  "staleDays": 30,
+  "cipher": { "preset": "shapes", "length": [4, 5], "decoys": 2 }
 }

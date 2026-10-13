@@ -7,11 +7,11 @@
 <script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>Reset checklist</title>
 <!-- Player-facing reset checklist from backpack-kit (backpack.json: "publish_reset": true).
-     kit.py build inlines the style, helpers and data. One step per lock, last lock first, from the
-     puzzles' container / answer / reset_display and the props' found_in / after_game / ## Reset. -->
+     kit.py build inlines the style, helpers and data. One step per envelope (its code and what goes
+     back in it, from the props' envelope / after_game / ## Reset), then what goes loose in the box. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../style.css">
 <style>
 main { max-width: 760px; }
@@ -29,8 +29,7 @@ main { max-width: 760px; }
 .step ul { margin: 6px 0 10px 20px; padding: 0; }
 .step li { margin: 2px 0; }
 .step .keep { color: var(--brass-2); }
-.step .lockline { border-left: 2px solid var(--brass); padding: 4px 0 4px 12px; margin: 10px 0 0; }
-.code { font-family: var(--mono); letter-spacing: .02em; color: var(--brass-2); white-space: nowrap; }
+.step h3 .sym { font-size: 1.7rem; margin-left: 6px; }
 .tick { display: flex; align-items: center; gap: 10px; margin-top: 14px; cursor: pointer; font: 12px var(--mono);
   letter-spacing: .1em; text-transform: uppercase; color: var(--cream-3); }
 .tick input { width: 20px; height: 20px; accent-color: var(--brass); }
@@ -40,7 +39,7 @@ main { max-width: 760px; }
 </head>
 <body>
 <div class="progress"><div class="in"><div class="count" id="count">0 / 0</div><div class="track"><div class="bar" id="bar"></div></div></div></div>
-<header><div><div class="eyebrow">Reset checklist</div><h1 id="proj">Backpack</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
+<header><div><div class="eyebrow">Reset checklist</div><h1 id="proj">Adventure</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
 <main id="view"></main>
 <script src="../common.js"></script>
 <script src="reset-data.js"></script>
@@ -48,35 +47,22 @@ main { max-width: 760px; }
 "use strict";
 const R = window.RESET;
 const $ = s => document.querySelector(s);
-const KEY = "bp-reset:v1:" + R.name;
+const KEY = "bp-reset:v2:" + R.name;
 let done = {};
 try { done = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} };
-
-const letters = s => /[A-Za-z]/.test(s || "");
-const spaced = s => esc(String(s).split("").join(" "));
-function lockLine(st) {
-  const code = st.code ? ` (code <span class="code">${spaced(st.code)}</span>)` : "";
-  const show = st.display
-    ? `leave it showing <span class="code">${spaced(st.display)}</span>`
-    : `turn the ${letters(st.code) ? "letters" : "numbers"} away from the code`;
-  return `Close it with <b>lock ${st.lock}</b>${code} and ${show}.`;
-}
 const list = items => items.length ? `<ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : "";
 
 function steps() {
-  const out = R.steps.map(st => ({ id: st.id, html: `<h3>Lock ${st.lock}</h3><div class="where">${esc(st.where || "Container not recorded")}</div>
-    ${st.put.length ? `<div>Put back inside:</div>${list(st.put)}` : st.nested.length ? "" : `<div>Nothing goes back in here.</div>`}
-    ${st.nested.length ? `<div>Also put in, already locked:</div>${list(st.nested.map(x => `Lock ${x.lock}: ${x.where}`))}` : ""}
+  const out = R.steps.map(st => ({ id: st.id, html: `<h3>Envelope${st.code ? `<span class="sym">${esc(st.code)}</span>` : ` ${st.n}`}</h3>
+    ${st.put.length ? `<div>Put back inside:</div>${list(st.put)}` : `<div>Nothing goes back in this one.</div>`}
     ${st.keep.length ? `<p class="keep">Yours to keep: ${esc(st.keep.join(", "))}.</p>` : ""}
     ${st.notes.map(n => `<p class="note">${inline(n)}</p>`).join("")}
-    <p class="lockline">${lockLine(st)}</p>` }));
-  if (R.start.length || R.startNotes.length)
-    out.push({ id: "start", html: `<h3>Starting position</h3><div class="where">What stays outside the locks for the next team</div>
-      ${R.start.map(g => `<div>${esc(g.where)}:</div>${list(g.put)}`).join("")}
-      ${R.startNotes.map(n => `<p class="note">${inline(n)}</p>`).join("")}` });
-  if (R.check.length)
-    out.push({ id: "check", html: `<h3>Last check</h3>${list(R.check.map(c => c.name + (c.where ? ": " + c.where.charAt(0).toLowerCase() + c.where.slice(1) : "")))}` });
+    <p class="note">Close the envelope and put it in the box.</p>` }));
+  out.push({ id: "box", html: `<h3>The box</h3>
+    ${R.start.length ? `<div>Put in loose, on top of the envelopes:</div>${list(R.start)}` : ""}
+    ${R.startNotes.map(n => `<p class="note">${inline(n)}</p>`).join("")}
+    <p class="note">Check that ${R.steps.length + R.decoys} envelopes are in the box${R.decoys ? `, including ${R.decoys} that are never opened` : ""}, then close the lid.</p>` });
   return out;
 }
 
@@ -84,13 +70,13 @@ function render() {
   const all = steps(), n = all.filter(s => done[s.id]).length;
   $("#count").textContent = `${n} / ${all.length}`;
   $("#bar").style.width = all.length ? (100 * n / all.length) + "%" : "0";
-  $("#view").innerHTML = `<div class="intro"><p>Thank you for packing the backpack back up for the next team!
-      Work from the top: the last lock comes first, so every pouch is locked before the pocket around it closes.</p>
+  $("#view").innerHTML = `<div class="intro"><p>Thank you for packing the adventure up for the next team!
+      Match each envelope by the symbols on its front, put its items back, and close it.</p>
       ${R.general.map(g => `<p class="note">${inline(g)}</p>`).join("")}</div>
     ${all.map(s => `<section class="step${done[s.id] ? " done" : ""}">${s.html}
       <label class="tick"><input type="checkbox" data-step="${esc(s.id)}"${done[s.id] ? " checked" : ""}> Done</label></section>`).join("")}
     <div class="finished"${n === all.length && all.length ? "" : " hidden"}><h2 style="margin-top:0">All packed!</h2>
-      <p>The backpack is ready for the next team. Thank you!</p><button class="btn" id="over">Start the checklist over</button></div>`;
+      <p>The box is ready for the next team. Thank you!</p><button class="btn" id="over">Start the checklist over</button></div>`;
 }
 
 document.addEventListener("change", e => {

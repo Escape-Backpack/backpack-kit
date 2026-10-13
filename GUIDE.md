@@ -5,9 +5,9 @@ as design guidance; call something a confirmed lesson only when the source sessi
 supports it. Defaults are choices, not proof that a mechanism will work.
 
 ## The format
-Someone the player knows sends them a backpack about their passion: a family member,
+Someone the player knows sends them a box about their passion: a family member,
 a friend, or another acquaintance (a co-worker, a pen pal...). The player solves
-puzzles through the backpack's contents.
+puzzles through the box's contents, opening marked envelopes as they go (see below).
 
 ## Final prize: a medallion (all backpacks)
 Every backpack ends with a medallion as the final prize.
@@ -45,25 +45,39 @@ and printer settings are unknown. Larger, more open lettering is approved
 geometry guidance, not a confirmed printing fix. Each new package includes a
 1.2 mm thick full-size back trial. Physical results remain to be recorded.
 
-## Default locks (all backpacks)
-- 3-digit lock
-- 4-digit lock
-- 4-letter lock
-- 3-digit lock where each wheel is a different colour
+## Envelopes and the cipher (all adventures, from October 2026)
+Adventures moved from locks, pouches and pockets in a backpack to **marked envelopes in a
+board-game box**: cheaper, lighter and simpler to reset. Lock-based backpacks (Norse, Hiking...)
+keep the kit's `v1` tag.
 
-In records these are `lock: 3-digit | 4-digit | 4-letter | 3-digit-colour`.
-A backpack can use a different set by adding `"locks": [...]` to its `backpack.json`.
+- Each puzzle's **answer** is 4 or 5 characters (digits, or letters if the cipher has them).
+- Each adventure has its own **cipher**: a lookup card that turns each character into a symbol.
+  It is a tool, not a puzzle. Give each adventure its own look (planet symbols for Space,
+  runes for Norse...). Presets live in `ciphers.json`; an adventure can define its own symbols.
+- The envelope the answer opens is marked with those symbols. Symbols instead of numbers mean
+  players can't tell which envelope comes next without the answer.
+- **Decoy envelopes** (`"decoys": 2` in the cipher settings) make guessing pointless.
+- Props say which envelope they're in (`envelope: PZ-004`), or `start` for loose in the box.
+  There are no containers, nesting or packing order to work out.
+- The board's **Print envelopes** page makes the cipher card, the labels (shuffled, decoys mixed
+  in) and a packing list.
+
+In `backpack.json`:
+
+```json
+"cipher": { "preset": "planets", "length": [4, 5], "decoys": 2 }
+```
 
 ## What we can build with (all backpacks)
 - **Home printing:** cardstock, colour.
 - **3D printing** at a friend's: Prusa i3 MK3S+, several filament colours (black, white, dark blue, yellow, green...).
 - **Small props:** rulers, UV light and UV pen, and so on.
-- **Bought items:** the backpack itself, relevant small items.
+- **Bought items:** a board-game box, envelopes, relevant small items.
 
 ## Puzzle and clue principles
 - Prefer subtle clues, but make every necessary connection inferable from the game.
   A player should be able to explain why they selected, ordered and read the inputs.
-- Supply required knowledge and keys in the backpack. Separate finding the method
+- Supply required knowledge and keys in the box. Separate finding the method
   from repetitive execution; a long transcription is not automatically a better puzzle.
 - Vary actions and give each puzzle a story reason. Reuse props when the connection
   is understandable, not simply to increase the number of steps.

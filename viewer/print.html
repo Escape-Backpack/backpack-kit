@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<script>try{var t=localStorage.getItem("ebp-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>Print envelopes</title>
+<!-- Shared print page from backpack-kit: the cipher card, one label per envelope (decoys included)
+     and a packing list for the designer. Built from the records: nothing here is hand-maintained.
+     The look follows the cipher preset (backpack.json "cipher"), e.g. .look-planets, .look-runes. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* Printed pieces use their own fixed colours (they're paper, not screen), set per cipher look. */
+.sheet { --paper: #fbf7ee; --ink: #20392e; --accent: #b95b3d; --rule: rgba(32,57,46,.35); --sym-font: "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans Runic", "Segoe UI Symbol", "Segoe UI Historic", "Apple Symbols", sans-serif; }
+.look-planets { --paper: #14223f; --ink: #f4ead2; --accent: #e8c26a; --rule: rgba(244,234,210,.35); }
+.look-runes { --paper: #efe3c8; --ink: #3a2a1a; --accent: #8a3b1f; --rule: rgba(58,42,26,.4); }
+.controls { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; font: 12px var(--mono); color: var(--cream-3); margin-bottom: 8px; }
+.controls label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.sheet h2 { margin-top: 34px; }
+.pieces { display: flex; flex-wrap: wrap; gap: 6mm; }
+.piece { background: var(--paper); color: var(--ink); border: 1px dashed var(--rule); outline: 1px solid var(--line); position: relative;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; break-inside: avoid; page-break-inside: avoid; }
+.piece .frame { position: absolute; inset: 3mm; border: 1.2px solid var(--accent); border-radius: 2mm; pointer-events: none; }
+.label { width: 90mm; height: 55mm; display: grid; place-items: center; text-align: center; }
+.label .name { position: absolute; top: 6mm; left: 0; right: 0; font: 9pt "Young Serif", Georgia, serif; letter-spacing: .08em; opacity: .8; }
+.label .code { font: 30pt/1 var(--sym-font); letter-spacing: .12em; color: var(--ink); white-space: nowrap; }
+.label .code.long { font-size: 25pt; }
+.label .note { position: absolute; bottom: 5mm; left: 0; right: 0; font: 7pt "JetBrains Mono", monospace; letter-spacing: .1em; text-transform: uppercase; opacity: .6; color: var(--ink); margin: 0; }
+.card { width: 120mm; padding: 9mm 10mm; }
+.card h3 { margin: 0 0 1mm; font: 15pt "Young Serif", Georgia, serif; color: var(--accent); }
+.card .sub { font: 8pt "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase; opacity: .75; margin-bottom: 5mm; }
+.key { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2.5mm; }
+.key div { border: 1px solid var(--rule); border-radius: 1.5mm; padding: 2mm 1mm; text-align: center; }
+.key .s { font: 19pt/1.1 var(--sym-font); display: block; }
+.key .c { font: 600 11pt "JetBrains Mono", monospace; display: block; margin-top: 1mm; }
+.key .l { font: 6.5pt "Inter Tight", sans-serif; display: block; opacity: .75; }
+.card .how { font: 8.5pt "Inter Tight", sans-serif; margin: 4mm 0 0; opacity: .9; }
+table.pack { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.pack th, table.pack td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+table.pack .sym { font-size: 1.4rem; }
+.tablewrap { overflow-x: auto; }
+@media print {
+  @page { margin: 10mm; }
+  .sitebar, header, .controls, .screen-only { display: none !important; }
+  body { background: #fff !important; }
+  main { padding: 0; max-width: none; }
+  .piece { outline: 0; }
+  .sheet h2 { color: #000; margin: 0 0 4mm; font-size: 13pt; }
+  .page { break-after: page; page-break-after: always; }
+  table.pack, table.pack th, table.pack td { color: #000; border-color: #999; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div><div class="eyebrow">Print envelopes</div><h1 id="proj">Adventure</h1><div class="sub" id="sub"></div></div>
+  <a class="btn" href="index.html">Design board</a>
+</header>
+<main>
+  <div class="controls">
+    <label><input type="checkbox" id="cand"> Include candidates and ideas</label>
+    <button class="btn" type="button" id="print">Print</button>
+  </div>
+  <p class="note screen-only">Cut along the dashed lines and glue each label on the front of an envelope. Labels are shuffled so the print order gives nothing away; use the packing list to fill them.</p>
+  <div id="view"></div>
+</main>
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+"use strict";
+const D = window.BACKPACK;
+const $ = s => document.querySelector(s);
+if (!D) { document.body.innerHTML = "<main><h2>No data.js found</h2><p>Run kit.py build first.</p></main>"; throw new Error("no data"); }
+const C = D.cipher, E = D.envelopes;
+const byId = Object.fromEntries(D.records.map(r => [r.id, r]));
+const KEY = "bp-print:" + D.config.name;
+let cand = false;
+try { cand = localStorage.getItem(KEY) === "1"; } catch (e) {}
+
+// A fixed shuffle (same every build) so labels never print in play order.
+function shuffled(list, seed) {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const rnd = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function render() {
+  const ok = s => ["decided", "built"].includes(s) || (cand && ["candidate", "idea"].includes(s));
+  const real = E.envelopes.filter(e => ok(e.status));
+  const missing = real.filter(e => !e.code);
+  const labels = shuffled([...real.filter(e => e.code).map(e => ({ code: e.code })), ...E.decoys.map(code => ({ code, decoy: true }))], D.config.name);
+  const name = esc(D.config.name);
+  const keys = Object.keys(C.symbols);
+  const label = l => `<div class="piece label"><span class="frame"></span><div class="name">${name}</div>
+    <div class="code${l.code.length > 4 ? " long" : ""}">${l.code.map(esc).join("")}</div></div>`;
+  const card = `<div class="piece card"><span class="frame"></span><h3>${esc(C.name)}</h3><div class="sub">${name}</div>
+    <div class="key">${keys.map(k => `<div><span class="s">${esc(C.symbols[k])}</span><span class="c">${esc(k)}</span>${C.labels[k] ? `<span class="l">${esc(C.labels[k])}</span>` : ""}</div>`).join("")}</div>
+    <p class="how">Found an answer? Turn each character into its symbol, then open the envelope that shows those symbols.</p></div>`;
+  const content = ids => ids.map(id => byId[id] ? `${esc(id)} ${esc(byId[id].title)}` : esc(id)).join("<br>") || "<i>empty</i>";
+
+  $("#view").innerHTML = `<div class="sheet look-${esc(C.preset || "custom")}">
+    ${missing.length ? `<div class="warnbox screen-only">No label for ${missing.map(e => `${esc(e.puzzle)} (${e.answer ? "answer can't be encoded" : "no answer yet"})`).join(", ")}.</div>` : ""}
+    <section class="page"><h2>Cipher card</h2><div class="pieces">${card}</div></section>
+    <section class="page"><h2>Envelope labels <span class="n">${labels.length}${E.decoys.length ? ` · ${E.decoys.length} decoy${E.decoys.length > 1 ? "s" : ""} mixed in` : ""}</span></h2>
+      ${labels.length ? `<div class="pieces">${labels.map(label).join("")}</div>` : `<div class="empty">No envelope has a code yet${cand ? "" : " among decided and built puzzles. Tick “Include candidates and ideas”"}.</div>`}</section>
+    <section><h2>Packing list <span class="n">designer only: don't put this in the box</span></h2><div class="tablewrap"><table class="pack">
+      <thead><tr><th>Envelope</th><th>Opened by</th><th>Put inside</th></tr></thead><tbody>
+      <tr><td>The box (loose)</td><td>at the start</td><td>${content(E.start.filter(id => ok(byId[id]?.status)))}${E.decoys.length || real.length ? `<br>${real.length + E.decoys.length} envelopes` : ""}</td></tr>
+      ${real.map(e => `<tr><td>${e.code ? `<span class="sym">${e.code.map(esc).join("")}</span>` : '<span class="flag">no code</span>'}</td><td>${esc(e.puzzle)} ${esc(e.title)}<br><span class="rid">answer ${esc(e.answer || "—")}</span></td><td>${content(e.contents.filter(id => ok(byId[id]?.status)))}</td></tr>`).join("")}
+      ${E.decoys.map(c => `<tr><td><span class="sym">${c.map(esc).join("")}</span></td><td>decoy: never opened</td><td><i>leave empty, or add a “nice try” card</i></td></tr>`).join("")}
+      </tbody></table></div></section></div>`;
+}
+
+$("#cand").checked = cand;
+$("#cand").addEventListener("change", e => { cand = e.target.checked; try { localStorage.setItem(KEY, cand ? "1" : "0"); } catch (err) {} render(); });
+$("#print").addEventListener("click", () => window.print());
+$("#proj").textContent = D.config.name;
+document.title = D.config.name + " · print envelopes";
+$("#sub").textContent = `${C.name} cipher · built ${D.builtAt}`;
+render();
+</script>
+</body>
+</html>

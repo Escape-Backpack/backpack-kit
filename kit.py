@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""backpack-kit: turn a backpack's Markdown records into the design viewer.
+"""backpack-kit: turn an adventure's Markdown records into the design board and player pages.
 
-Run from inside a backpack project folder (the one with backpack.json):
+An adventure is a box of marked envelopes. Each puzzle's answer, looked up in the adventure's
+cipher, gives the symbols printed on the envelope to open next.
+
+Run from inside an adventure project folder (the one with backpack.json):
 
   python ../backpack-kit/kit.py build                 write site/ from records/
   python ../backpack-kit/kit.py serve                 build, then preview at http://localhost:8000/site/
@@ -10,7 +13,7 @@ Run from inside a backpack project folder (the one with backpack.json):
   python ../backpack-kit/kit.py init ../Celtic --name "Celtic"
 
 Types for `new`: premise, beat, puzzle, prop, question, asset.
-No dependencies beyond Python 3.9+ and git.
+No dependencies beyond Python 3.9+ and git. Lock-based backpacks use the kit's v1 tag.
 """
 import argparse
 import datetime
@@ -18,12 +21,13 @@ import functools
 import http.server
 import json
 import os
+import random
 import time
 import re
 import shutil
 import subprocess
 import sys
-from checks import readiness, flow_model
+from checks import readiness
 
 KIT = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,15 +44,21 @@ STATUSES = ["idea", "candidate", "decided", "built", "parked"]
 QUESTION_STATUSES = ["open", "answered", "parked"]
 STALE_STATUSES = {"idea", "candidate"}
 # Fields whose values are record IDs. Backlinks are derived from these.
-REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for", "found_in", "container_in"]
+REF_FIELDS = ["links", "superseded_by", "beat", "props", "needs", "about", "for", "envelope"]
 INT_FIELDS = ["order", "difficulty"]
 # What happens to a prop after the game, on the public reset page (blank = return).
-AFTER_GAME = ["return", "keep", "stays", "none"]
+AFTER_GAME = ["return", "keep", "none"]
 ID_RE = re.compile(r"^([A-Z]{1,2})-(\d{3,})$")
-# Default lock kit for every backpack (GUIDE.md). A backpack can override "locks" in backpack.json.
-DEFAULT_LOCKS = ["3-digit", "4-digit", "4-letter", "3-digit-colour"]
-DEFAULT_CONFIG = {"name": "Untitled backpack", "beatLabel": "Structure beat", "staleDays": 30,
-                  "locks": DEFAULT_LOCKS}
+DEFAULT_CONFIG = {"name": "Untitled adventure", "beatLabel": "Structure beat", "staleDays": 30}
+DEFAULT_CIPHER = {"preset": "shapes", "length": [4, 5], "decoys": 0}
+# Fields from the lock-based kit (v1). Reported so old records get cleaned up.
+LEGACY_FIELDS = {
+    "lock": "remove it: answers now give an envelope code",
+    "container": "remove it: items go in envelopes",
+    "container_in": "remove it: envelopes don't nest",
+    "reset_display": "remove it: there are no locks to reset",
+    "found_in": "rename it to envelope (start, or the puzzle whose answer opens it)",
+}
 
 
 # ---------- parsing ----------
@@ -154,6 +164,97 @@ def load_config(project):
     return cfg
 
 
+# ---------- cipher and envelopes ----------
+
+def load_cipher(cfg):
+    """The adventure's cipher: backpack.json "cipher" on top of its preset (ciphers.json).
+    Returns (cipher, problems). cipher["symbols"] maps an answer character to its symbol."""
+    with open(os.path.join(KIT, "ciphers.json"), encoding="utf-8") as f:
+        presets = json.load(f)
+    own = cfg.get("cipher") or {}
+    problems = [] if cfg.get("cipher") else ['no "cipher" in backpack.json; using the "shapes" preset']
+    c = dict(DEFAULT_CIPHER, **own)
+    preset = presets.get(c["preset"]) if isinstance(c.get("preset"), str) and not c["preset"].startswith("_") else None
+    if c.get("preset") and preset is None:
+        problems.append(f"unknown cipher preset {c['preset']!r}; presets: "
+                        + ", ".join(k for k in presets if not k.startswith("_")))
+    base = preset or {}
+    symbols = {str(k).upper(): v for k, v in (own.get("symbols") or base.get("symbols") or {}).items()}
+    labels = {str(k).upper(): v for k, v in (own.get("labels") or base.get("labels") or {}).items()}
+    if len(set(symbols.values())) < len(symbols):
+        problems.append("cipher symbols must all be different, or two answers could give the same envelope")
+    length = c.get("length") or [4, 5]
+    if isinstance(length, int):
+        length = [length, length]
+    return {"name": own.get("name") or base.get("name") or "Cipher", "preset": c.get("preset") or "",
+            "symbols": symbols, "labels": labels, "length": [int(length[0]), int(length[-1])],
+            "decoys": int(c.get("decoys") or 0)}, problems
+
+
+def norm_answer(answer):
+    """Answers ignore case, spaces and dashes."""
+    return re.sub(r"[\s\-_.,:;/|]+", "", str(answer or "")).upper()
+
+
+def encode(answer, cipher):
+    """The symbols for an answer, or None if a character isn't in the cipher."""
+    chars = norm_answer(answer)
+    if not chars or any(ch not in cipher["symbols"] for ch in chars):
+        return None
+    return [cipher["symbols"][ch] for ch in chars]
+
+
+def answer_problems(answer, cipher):
+    chars = norm_answer(answer)
+    out = []
+    bad = sorted({ch for ch in chars if ch not in cipher["symbols"]})
+    if bad:
+        out.append(f"answer {answer!r} uses {', '.join(bad)}, which the {cipher['name']} cipher can't encode")
+    lo, hi = cipher["length"]
+    if chars and not lo <= len(chars) <= hi:
+        out.append(f"answer {answer!r} has {len(chars)} characters; envelope codes are {lo}"
+                   + (f" to {hi}" if hi != lo else "") + " long")
+    return out
+
+
+def decoy_codes(cipher, taken, seed):
+    """Codes for decoy envelopes: stable for an adventure, never equal to a real code."""
+    rng = random.Random(seed)
+    keys = sorted(cipher["symbols"])
+    lo, hi = cipher["length"]
+    out, seen = [], {"".join(c) for c in taken}
+    for _ in range(cipher["decoys"] * 50):
+        if len(out) >= cipher["decoys"] or not keys:
+            break
+        code = [cipher["symbols"][rng.choice(keys)] for _ in range(rng.randint(lo, hi))]
+        if "".join(code) not in seen:
+            seen.add("".join(code))
+            out.append(code)
+    return out
+
+
+def live(r):
+    return r.get("status") != "parked" and not r.get("superseded_by")
+
+
+def envelope_model(records, cfg, cipher):
+    """Every envelope in play order: the puzzle whose answer opens it, its code and what's inside.
+    Includes ideas and candidates (each envelope carries its puzzle's status); parked ones are left out."""
+    puzzles = [r for r in records if r["type"] == "puzzle" and live(r)]
+    props = [r for r in records if r["type"] == "prop" and live(r)]
+    envelopes = []
+    for p in play_order(puzzles, props):
+        envelopes.append({
+            "puzzle": p["id"], "title": p.get("title") or "", "status": p.get("status") or "",
+            "answer": p.get("answer") or "", "code": encode(p.get("answer"), cipher),
+            "contents": [x["id"] for x in props if x.get("envelope") == p["id"]],
+        })
+    real = [e["code"] for e in envelopes if e["code"]]
+    return {"start": [x["id"] for x in props if x.get("envelope") == "start"],
+            "envelopes": envelopes,
+            "decoys": decoy_codes(cipher, real, cfg.get("name", ""))}
+
+
 def record_files(project):
     root = os.path.join(project, "records")
     for type_, info in TYPES.items():
@@ -178,6 +279,10 @@ def load(project):
 
     def warn(rel, rid, msg):
         warnings.append({"file": rel, "id": rid, "msg": msg})
+
+    cipher, problems = load_cipher(cfg)
+    for msg in problems:
+        warn("backpack.json", None, msg)
 
     for folder_type, path in record_files(project):
         rel = os.path.relpath(path, project).replace(os.sep, "/")
@@ -206,8 +311,12 @@ def load(project):
         allowed = QUESTION_STATUSES if rtype == "question" else STATUSES
         if fields.get("status") not in allowed:
             warn(rel, rid, f"status {fields.get('status')!r} is not one of: {', '.join(allowed)}")
-        if rtype == "puzzle" and fields.get("lock") and fields["lock"] not in cfg["locks"]:
-            warn(rel, rid, f"lock {fields['lock']!r} is not one of: {', '.join(cfg['locks'])}")
+        for key, fix in LEGACY_FIELDS.items():
+            if key in fields:
+                warn(rel, rid, f"{key} is from the lock-based kit; {fix}")
+        if rtype == "puzzle" and fields.get("answer") and fields.get("status") != "parked" and not fields.get("superseded_by"):
+            for msg in answer_problems(fields["answer"], cipher):
+                warn(rel, rid, msg)
         if rtype == "puzzle":
             for key, allowed_values in (("test_status", ("untested", "passed", "changes-needed")),
                                         ("test_method", ("physical", "digital")),
@@ -244,13 +353,11 @@ def load(project):
     for r in records:
         for field in REF_FIELDS:
             for target in as_list(r.get(field)):
-                if field == "found_in" and target == "start":
+                if field == "envelope" and target == "start":
                     continue
-                if field == "found_in" and target in by_id and by_id[target]["type"] != "puzzle":
-                    warn(r["path"], r["id"], f"found_in must be start or a puzzle ID, not {target}")
                 if target not in by_id:
                     warn(r["path"], r["id"], f"{field} points to unknown id {target}")
-                expected = {"beat": "beat", "props": "prop", "needs": "puzzle", "for": "prop", "container_in": "puzzle"}.get(field)
+                expected = {"beat": "beat", "props": "prop", "needs": "puzzle", "for": "prop", "envelope": "puzzle"}.get(field)
                 if expected and target in by_id and by_id[target]["type"] != expected:
                     warn(r["path"], r["id"], f"{field} requires a {expected} ID, not {target}")
         if r.get("superseded_by") == r["id"]:
@@ -261,6 +368,15 @@ def load(project):
                                      "left off the public hint page")
 
     records.sort(key=lambda r: id_sort_key(r["id"]))
+    envelopes = envelope_model(records, cfg, cipher)
+    codes = {}
+    for e in envelopes["envelopes"]:
+        if e["code"]:
+            codes.setdefault("".join(e["code"]), []).append(e["puzzle"])
+    for code, ids in codes.items():
+        if len(ids) > 1:
+            warn(by_id[ids[1]]["path"], ids[1], f"same envelope code {code} as {', '.join(ids[:1] + ids[2:])}: "
+                                                "change one answer so each envelope is unique")
     rel_to_id = {r["path"]: r["id"] for r in records}
     changes = []
     dirty_ids = sorted({rel_to_id[p] for p in dirty if p in rel_to_id}, key=id_sort_key)
@@ -283,10 +399,9 @@ def load(project):
         "warnings": warnings,
         "readiness": readiness(records),
         "releaseReadiness": readiness(records, release=True),
-        "flow": flow_model(records),
-        "playOrder": [p["id"] for p in play_order(
-            [r for r in records if r["type"] == "puzzle" and r.get("status") != "parked" and not r.get("superseded_by")],
-            [r for r in records if r["type"] == "prop" and r.get("status") != "parked" and not r.get("superseded_by")])],
+        "cipher": cipher,
+        "envelopes": envelopes,
+        "playOrder": [e["puzzle"] for e in envelopes["envelopes"]],
     }
 
 
@@ -338,10 +453,8 @@ def list_items(text):
 
 
 def play_order(puzzles, props):
-    """Puzzles in the order a player can open them (found_in / needs / props); unreachable ones last."""
-    ids = {p["id"] for p in puzzles}
-    prop_ids = {x["id"] for x in props}
-    done, hand = [], {x["id"] for x in props if x.get("found_in") == "start"}
+    """Puzzles in the order a player can solve them (envelope / needs / props); unreachable ones last."""
+    done, hand = [], {x["id"] for x in props if x.get("envelope") == "start"}
     grew = True
     while grew:
         grew = False
@@ -351,7 +464,7 @@ def play_order(puzzles, props):
             if (all(n in done for n in as_list(p.get("needs")))
                     and all(x in hand for x in as_list(p.get("props")))):
                 done.append(p["id"])
-                hand |= {x["id"] for x in props if x.get("found_in") == p["id"]}
+                hand |= {x["id"] for x in props if x.get("envelope") == p["id"]}
                 grew = True
                 break
     order = {pid: i for i, pid in enumerate(done)}
@@ -364,28 +477,30 @@ def hint_gaps(p):
         ("hint_title", p.get("hint_title")),
         ("## Hints list", list_items(md_section(p.get("body", ""), "Hints"))),
         ("## Solution", md_section(p.get("body", ""), "Solution")),
-        ("answer", not p.get("lock") or p.get("answer"))) if not ok]
+        ("answer", p.get("answer"))) if not ok]
     return gaps
 
 
 def build_hints(data, site, viewer):
     """Write site/hints/index.html: a self-contained, public, player-facing hint page.
-    It carries only each lock's hint_title, lock type, hints and solution: no design notes."""
+    It carries only each puzzle's hint_title, hints, answer, envelope code and solution: no design notes.
+    (The payload keeps the name "locks" because the stats API and sync.js count steps as locks.)"""
     playable = ("decided", "built")
-    live = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
+    selected = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
     # Incomplete puzzles are left off the page; load() reports them as warnings.
-    puzzles = [r for r in live if r["type"] == "puzzle" and r.get("publish_hints") == "yes"
+    puzzles = [r for r in selected if r["type"] == "puzzle" and r.get("publish_hints") == "yes"
                and not hint_gaps(r)]
-    props = [r for r in live if r["type"] == "prop"]
-    ordered = play_order([r for r in live if r["type"] == "puzzle"], props)
+    props = [r for r in selected if r["type"] == "prop"]
+    ordered = play_order([r for r in selected if r["type"] == "puzzle"], props)
     public_ids = {p["id"] for p in puzzles}
+    cipher = data.get("cipher") or load_cipher(data["config"])[0]
     locks = [{
         "id": p["id"],
         "title": p.get("hint_title") or "",
-        "lock": p.get("lock") or "",
         "status": p["status"],
         "hints": list_items(md_section(p["body"], "Hints")),
         "answer": p.get("answer") or "",
+        "code": "".join(encode(p.get("answer"), cipher) or []),
         "solution": md_section(p["body"], "Solution"),
     } for p in ordered if p["id"] in public_ids]
     payload = {"name": data["config"]["name"], "builtAt": data["builtAt"], "locks": locks}
@@ -411,19 +526,19 @@ NO_NOTE = re.compile(r"^(none needed|not recorded yet)\b", re.I)
 
 
 def reset_model(data):
-    """The public reset checklist: one step per lock, last lock first (inner pouches are packed
-    before the pockets around them close), then the starting position and final checks.
-    Built from puzzles (lock, answer, container, reset_display) and props (found_in, container,
-    after_game, reset_name, ## Reset)."""
+    """The public reset checklist: one step per envelope (its code and what goes back in it),
+    then what goes loose in the box. Built from the decided/built game: puzzles (answer) and
+    props (envelope, after_game, reset_name, ## Reset)."""
     playable = ("decided", "built")
-    live = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
-    props = [r for r in live if r["type"] == "prop"]
-    ordered = [p for p in play_order([r for r in live if r["type"] == "puzzle"], props) if p.get("lock")]
+    selected = [r for r in data["records"] if not r.get("superseded_by") and r.get("status") in playable]
+    props = [r for r in selected if r["type"] == "prop"]
+    cipher = data.get("cipher") or load_cipher(data["config"])[0]
+    ordered = play_order([r for r in selected if r["type"] == "puzzle"], props)
     name = lambda p: p.get("reset_name") or p.get("title") or p["id"]
     fate = lambda p: p.get("after_game") or "return"
     note = lambda p: " ".join(md_section(p.get("body", ""), "Reset").split())
 
-    # A note many props share (e.g. "return each card to its pouch") is said once, at the top.
+    # A note many props share (e.g. "fold the map along its creases") is said once, at the top.
     counts = {}
     for p in props:
         if note(p) and not NO_NOTE.match(note(p)):
@@ -439,29 +554,20 @@ def reset_model(data):
         return seen
 
     steps = []
-    for n, puzzle in reversed(list(enumerate(ordered, 1))):
-        inside = [p for p in props if p.get("found_in") == puzzle["id"]]
+    for n, puzzle in enumerate(ordered, 1):
+        inside = [p for p in props if p.get("envelope") == puzzle["id"]]
         steps.append({
-            "id": puzzle["id"], "lock": n, "lockType": puzzle.get("lock") or "",
-            "where": puzzle.get("container") or "", "code": puzzle.get("answer") or "",
-            "display": puzzle.get("reset_display") or "",
+            "id": puzzle["id"], "n": n, "code": "".join(encode(puzzle.get("answer"), cipher) or []),
             "put": [name(p) for p in inside if fate(p) == "return"],
             "keep": [name(p) for p in inside if fate(p) == "keep"],
             "notes": notes(inside),
-            # Locked containers that sit inside this one (container_in), packed before it closes.
-            "nested": [{"lock": m, "where": q.get("container") or ""}
-                       for m, q in enumerate(ordered, 1) if q.get("container_in") == puzzle["id"]],
         })
-    start = [p for p in props if p.get("found_in") == "start"]
-    groups = {}
-    for p in start:
-        if fate(p) == "return":
-            groups.setdefault(p.get("container") or "In the backpack", []).append(name(p))
+    start = [p for p in props if p.get("envelope") == "start"]
     return {
         "name": data["config"]["name"], "builtAt": data["builtAt"], "general": general, "steps": steps,
-        "start": [{"where": w, "put": items} for w, items in groups.items()],
+        "decoys": cipher["decoys"],
+        "start": [name(p) for p in start if fate(p) == "return"],
         "startNotes": notes(start),
-        "check": [{"name": name(p), "where": p.get("container") or ""} for p in start if fate(p) == "stays"],
     }
 
 
@@ -491,7 +597,7 @@ def cmd_build(project, quiet=False):
     # Static hosts cache .js/.css for hours; a new ?v= on each build makes a normal refresh
     # pick up the latest data.js. The HTML pages themselves are always revalidated.
     version = str(int(time.time()))
-    for page in ("index.html", "play.html"):
+    for page in ("index.html", "play.html", "print.html"):
         path = os.path.join(site, page)
         with open(path, encoding="utf-8") as f:
             html = f.read()

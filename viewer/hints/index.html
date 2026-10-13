@@ -12,7 +12,7 @@
      a run with its game code, and the end screen compares the team with earlier teams. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../style.css">
 <style>
 main { max-width: 760px; }
@@ -44,6 +44,8 @@ main { max-width: 760px; }
 .level.sol { border-left-color: var(--s-built); }
 .level.sol b { color: var(--s-built); }
 .code { font: 1.4rem var(--mono); letter-spacing: .14em; color: var(--brass-2); }
+.envline { margin: 4px 0 6px; font-size: 15px; }
+.envline .sym { font-size: 1.6rem; vertical-align: middle; }
 .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .test { border: 1px dashed var(--stale); color: var(--stale); padding: 8px 12px; font: 12px var(--mono); letter-spacing: .06em; margin-bottom: 14px; }
 .cand { font: 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stale); border: 1px dashed var(--stale); padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
@@ -57,7 +59,7 @@ main { max-width: 760px; }
 <body>
 <div class="bar-top" id="bar" hidden><div class="in"><div><div class="clock" id="clock">00:00:00</div><div class="team" id="teamlbl"></div></div>
   <div class="btnrow" style="margin:0"><button class="btn" id="pause">Pause</button><button class="btn" id="restart">Start over</button><button class="btn" id="finish">Done!</button></div></div></div>
-<header><div><div class="eyebrow">Hint companion</div><h1 id="proj">Backpack</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
+<header><div><div class="eyebrow">Hint companion</div><h1 id="proj">Adventure</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
 <main id="view"></main>
 <div id="done" hidden></div>
 <script src="../common.js"></script>
@@ -67,6 +69,7 @@ main { max-width: 760px; }
 "use strict";
 const H = window.HINTS;
 const $ = s => document.querySelector(s);
+// One entry per puzzle, in play order. ("locks" is the stats API's name for a step of the game.)
 const LOCKS = H.locks;
 const KEY = "bp-hints:v2:" + H.name;
 // Logging, game codes and the comparison only run when backpack.json has a "stats" entry.
@@ -84,8 +87,7 @@ const elapsed = () => {
   return Math.max(0, end - S.started - S.paused);
 };
 const fmt = ms => { const t = Math.floor(ms / 1000); return [t / 3600, t / 60 % 60, t % 60].map(n => String(Math.floor(n)).padStart(2, "0")).join(":"); };
-const lockName = l => l.lock ? `${l.lock} lock` : "Lock";
-const heading = (l, i) => /^lock \d+$/i.test(l.title) ? l.title : `${i + 1}. ${l.title || lockName(l)}`;
+const heading = (l, i) => `${i + 1}. ${l.title || "Puzzle"}`;
 
 function render() {
   $("#bar").hidden = !S.started;
@@ -104,17 +106,17 @@ function render() {
   if (SYNC) h += SYNC.code
     ? `<div class="gamecode">Game code <b>${esc(SYNC.code)}</b>: teammates can join on their phone and share this timer and hints.</div>`
     : `<div class="gamecode">${SYNC.pending ? "Connecting…" : "Offline"}: the game code appears once this phone is online. Your progress is kept.</div>`;
-  h += `<p class="note">Stuck? Open one hint at a time for the lock you're working on. The last step shows the solution.${SYNC ? " Tap “Mark solved” when a lock opens." : ""}</p>`;
-  if (!LOCKS.length) h += `<div class="empty">No locks are ready yet.</div>`;
+  h += `<p class="note">Stuck? Open one hint at a time for the puzzle you're working on. The last step shows the answer and the envelope it opens.${SYNC ? " Tap “Mark solved” when you open its envelope." : ""}</p>`;
+  if (!LOCKS.length) h += `<div class="empty">No puzzles are ready yet.</div>`;
   LOCKS.forEach((l, i) => {
     const n = S.shown[l.id] || 0, total = l.hints.length + 1, solved = !!S.solved[l.id];
     const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")
-      + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
+      + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.code ? `<div class="envline">Open the envelope marked <span class="sym">${esc(l.code)}</span></div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
     const next = n < l.hints.length ? `Hint ${n + 1}` : n < total ? "Show the solution" : "";
     const buttons = (next ? `<button class="btn" data-next="${i}">${next}</button>` : "")
       + (SYNC ? `<button class="btn${solved ? " on" : ""}" data-solve="${i}">${solved ? "✓ Solved" : "Mark solved"}</button>` : "");
     h += `<section class="lockcard${solved ? " solved" : ""}"><h3>${esc(heading(l, i))}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
-      ${l.title ? `<div class="kv">${esc(lockName(l))}</div>` : ""}<div class="levels">${levels}</div>
+      <div class="levels">${levels}</div>
       ${buttons ? `<div class="btnrow">${buttons}</div>` : ""}</section>`;
   });
   $("#view").innerHTML = h;
@@ -177,7 +179,7 @@ document.addEventListener("click", async e => {
   const nx = e.target.closest("[data-next]");
   if (nx) {
     const i = +nx.dataset.next, l = LOCKS[i], n = S.shown[l.id] || 0;
-    if (n >= l.hints.length && !confirm("Show the solution for this lock?")) return;
+    if (n >= l.hints.length && !confirm("Show the answer for this puzzle?")) return;
     S.shown[l.id] = n + 1; save(); render();
     if (SYNC) SYNC.op({ t: "hint", lock: i, level: n });
     return;
@@ -186,7 +188,7 @@ document.addEventListener("click", async e => {
   if (sv) {
     const i = +sv.dataset.solve, linear = !!(CFG && CFG.linear);
     if (!S.solved[LOCKS[i].id]) {
-      // Locks open in order: marking one also marks any earlier lock the team forgot to mark.
+      // Envelopes open in order: marking one also marks any earlier one the team forgot to mark.
       LOCKS.forEach((l, j) => { if (j === i || (linear && j < i)) S.solved[l.id] = true; });
       SYNC.op({ t: "solve", lock: i, upto: linear });
     } else {
@@ -205,16 +207,16 @@ $("#pause").addEventListener("click", () => {
   else { S.pausedAt = Date.now(); if (SYNC) SYNC.op({ t: "pause" }); }
   save(); render(); tick();
 });
-// Start over on this phone: timer, hints and solved locks cleared. The logged run stays unfinished,
+// Start over on this phone: timer, hints and solved puzzles cleared. The logged run stays unfinished,
 // so it is never compared; teammates who joined keep the old game.
 $("#restart").addEventListener("click", () => {
   const shared = SYNC && SYNC.code ? " Teammates who joined with the game code keep the current game." : "";
-  if (!confirm("Start over? This clears the timer, hints and solved locks on this phone." + shared)) return;
+  if (!confirm("Start over? This clears the timer, hints and solved puzzles on this phone." + shared)) return;
   S = fresh(); save(); if (SYNC) SYNC.leave();
   $("#done").hidden = true; render(); tick(); window.scrollTo(0, 0);
 });
 $("#finish").addEventListener("click", () => {
-  if (!S.finished && !confirm("Did you open the last lock? This stops the timer.")) return;
+  if (!S.finished && !confirm("Did you open the last envelope? This stops the timer.")) return;
   if (!S.finished) {
     if (S.pausedAt) { S.paused += Date.now() - S.pausedAt; S.pausedAt = 0; }
     S.finished = Date.now(); save();

@@ -1,8 +1,9 @@
 # {{name}}: working rules for AI agents
 
-This is an adventure backpack design project. The design lives in `records/`,
-one Markdown file per record, rendered by the shared viewer from
-[backpack-kit](https://github.com/Escape-Backpack/backpack-kit).
+This is an Escape Backpack adventure design project: a box of marked envelopes. Each puzzle's
+answer, looked up in the adventure's cipher (`backpack.json`), gives the symbols on the envelope
+to open next. The design lives in `records/`, one Markdown file per record, rendered by the shared
+viewer from [backpack-kit](https://github.com/Escape-Backpack/backpack-kit).
 
 ## How sessions work
 - Sessions are brainstorming. Propose options and ask questions **before**
@@ -31,7 +32,9 @@ one Markdown file per record, rendered by the shared viewer from
 - Run `python ../backpack-kit/kit.py check` after editing. It must report no problems.
 - Before a playtest run `python ../backpack-kit/kit.py ready --include-candidates`.
   It reports gaps without forcing unfinished ideas into decisions. Before release,
-  run `ready --release` for the decided/built game and check the actual lock wheels.
+  run `ready --release` for the decided/built game.
+- Answers are 4-5 characters the cipher can encode, and every envelope code must be unique.
+  `check` reports both. The board's **Print envelopes** page makes the labels and cipher card.
 
 ## Kit location
 The kit is expected next to this repo, at `../backpack-kit`. If it's missing

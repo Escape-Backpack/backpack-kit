@@ -14,16 +14,10 @@ needs: []
 mechanic:
 # 1 (easy) to 3 (hard)
 difficulty:
-# Lock it opens: 3-digit | 4-digit | 4-letter | 3-digit-colour (blank if none)
-lock:
+# 4-5 characters the cipher can encode (see backpack.json). The envelope it opens is marked
+# with the matching symbols; props with envelope: <this ID> go inside.
 answer:
-# Compartment this lock closes, e.g. "Front pocket" (shown on the Locks tab)
-container:
-# What the lock shows once it is locked again after the game, e.g. 0000 or LOCK (public reset page)
-reset_display:
-# The puzzle whose compartment holds this lock's container, e.g. a pouch packed inside the main compartment
-container_in:
-# What players call this lock on the hint page, e.g. "The luggage tag" (spoiler-free)
+# What players call this puzzle on the hint page, e.g. "The luggage tag" (spoiler-free)
 hint_title:
 # Explicit opt-in for the PUBLIC hint page. Candidates are never published.
 publish_hints: no
@@ -31,26 +25,14 @@ publish_hints: no
 test_status: untested
 # physical | digital (a digital walkthrough does not verify a physical prop)
 test_method:
-# Optional stable Clue Library technique link
-technique:
 # Any related record IDs, e.g. [PZ-002, Q-004]
 links: []
-# Set to an ID when this record is replaced. It then moves to the Parked tab.
+# Set to an ID when this record is replaced. It is then hidden unless the board's "parked" filter is on.
 superseded_by:
 tags: []
 ---
 
 ## How it works
-
-## Player notices
-
-## Player does
-
-## Player obtains
-
-## Story reason
-
-## Reading order
 
 ## Clue wording
 

@@ -1,12 +1,17 @@
 # backpack-kit
 
-Shared tooling for Escape-Backpack design projects: a viewer, a build script,
+Shared tooling for Escape Backpack adventures: a design board, a build script,
 record templates and a design guide. See GUIDE.md for the working method and
-docs/RECORDS.md for backward-compatible record additions and hint-release migration.
+docs/RECORDS.md for the record format.
 
-Each backpack stores its design as **records**, one Markdown file per fact.
-`kit.py` bundles them into a local viewer with fixed tabs: Overview, Premise,
-Structure, Flow, Puzzles, Props, Setup & reset, Questions, Decisions, Parked and Assets.
+An adventure is a box of **marked envelopes**. Each puzzle's answer, looked up in the
+adventure's cipher, gives the symbols on the envelope to open next. Each adventure stores its
+design as **records**, one Markdown file per fact. `kit.py` bundles them into a board with three
+tabs (Story, Puzzles, Props), a play-test, a print page for the envelope labels and cipher card,
+and the public hint and reset pages.
+
+**Lock-based backpacks** (Norse, Hiking, and anything built for padlocks and pouches) use the
+`v1` tag of this kit: `git clone --branch v1 https://github.com/Escape-Backpack/backpack-kit`.
 
 ## Setup
 Clone the kit next to the backpack repos:
@@ -30,18 +35,20 @@ Requires Python 3.9+ and git. There are no other dependencies.
 | Prepare a prototype test | `python ../backpack-kit/kit.py ready --include-candidates` |
 | Audit release evidence | `python ../backpack-kit/kit.py ready --release` |
 | Play-test the decided game | the **▶ Play-test** button, or `site/play.html` |
+| Print labels and the cipher card | the **Print envelopes** button, or `site/print.html` |
 
 `site/` is generated and git-ignored. You can also open `site/index.html`
 directly, without the server.
 
 ## Online pages and remote editing
 Everything is served from escapepack.ca by one Cloudflare Pages project, `escapepack-site`.
-Its `build.sh` downloads this kit (which must stay public) and builds every backpack
-listed in `escapepack-site/backpacks.txt`:
+Its `build.sh` downloads this kit (which must stay public) and builds every adventure
+listed in `escapepack-site/backpacks.txt`. A third column there picks the kit version
+(`v1` for lock-based backpacks; blank = the latest, envelope-based kit):
 
 | Address | What | Who sees it |
 |---|---|---|
-| `escapepack.ca/design/<slug>/` | the backpack's design board and play-test | anyone with the link (`noindex`, no login) |
+| `escapepack.ca/design/<slug>/` | the design board, play-test and print page | anyone with the link (`noindex`, no login) |
 | `escapepack.ca/help/<slug>/` | the public hint page: this is the printed QR link | everyone |
 
 Each backpack's `.github/workflows/rebuild-site.yml` calls the site's deploy hook on every
@@ -52,7 +59,7 @@ claude.ai/code. `AGENTS.md` tells it to clone the kit if it's missing.
 
 Record types for `new`: `premise`, `beat`, `puzzle`, `prop`, `question`, `asset`.
 
-## Start a new backpack
+## Start a new adventure
 ```
 python backpack-kit/kit.py init Celtic --name "Celtic"
 ```
