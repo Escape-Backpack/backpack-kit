@@ -40,6 +40,11 @@ Requires Python 3.9+ and git. There are no other dependencies.
 `site/` is generated and git-ignored. You can also open `site/index.html`
 directly, without the server.
 
+## Working together: the Studio
+escapepack.ca/studio/ is a live, shared board for an adventure's story, puzzles and props
+(code and setup: `escapepack-site/workers/studio/`). It saves to the adventure's GitHub repo every
+10 minutes. Claude sessions sync with `kit.py studio pull` and `kit.py studio push`.
+
 ## Online pages and remote editing
 Everything is served from escapepack.ca by one Cloudflare Pages project, `escapepack-site`.
 Its `build.sh` downloads this kit (which must stay public) and builds every adventure

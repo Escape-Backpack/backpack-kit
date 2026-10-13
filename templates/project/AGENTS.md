@@ -36,6 +36,15 @@ viewer from [backpack-kit](https://github.com/Escape-Backpack/backpack-kit).
 - Answers are 4-5 characters the cipher can encode, and every envelope code must be unique.
   `check` reports both. The board's **Print envelopes** page makes the labels and cipher card.
 
+## The Studio (escapepack.ca/studio)
+If `backpack.json` has `"studio"`, the live copy of the records is in the Studio, where the
+designers edit together. GitHub gets a snapshot every 10 minutes, so it can be behind.
+- Start every session with `python ../backpack-kit/kit.py studio pull`.
+- After editing records, run `check`, then `python ../backpack-kit/kit.py studio push`.
+  If push reports a conflict, pull again and redo that change on the new version.
+- Needs `STUDIO_CLIENT_ID` and `STUDIO_CLIENT_SECRET` (an Access service token). Without them,
+  stop and ask the designer rather than committing record edits straight to GitHub.
+
 ## Kit location
 The kit is expected next to this repo, at `../backpack-kit`. If it's missing
 (for example in a Claude cloud session), fetch it first:

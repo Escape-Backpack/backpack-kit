@@ -11,6 +11,7 @@ Run from inside an adventure project folder (the one with backpack.json):
   python ../backpack-kit/kit.py check                 validate records, print problems
   python ../backpack-kit/kit.py new puzzle "Star chart"
   python ../backpack-kit/kit.py init ../Celtic --name "Celtic"
+  python ../backpack-kit/kit.py studio pull | push    sync records/ with escapepack.ca/studio
 
 Types for `new`: premise, beat, puzzle, prop, question, asset.
 No dependencies beyond Python 3.9+ and git. Lock-based backpacks use the kit's v1 tag.
@@ -661,6 +662,107 @@ def cmd_serve(project, port):
             pass
 
 
+# ---------- studio (escapepack.ca/studio: the live copy of the records) ----------
+
+def studio_call(cfg, method, path, body=None):
+    """Call the Studio API. Login: a Cloudflare Access service token in STUDIO_CLIENT_ID and
+    STUDIO_CLIENT_SECRET. STUDIO_URL overrides backpack.json for a local `wrangler dev` test."""
+    import urllib.request, urllib.error
+    st = cfg.get("studio") or {}
+    base = (os.environ.get("STUDIO_URL") or st.get("url") or "https://escapepack.ca/studio").rstrip("/")
+    if not st.get("slug"):
+        sys.exit('backpack.json has no "studio": {"slug": "..."}: this adventure is not in the Studio.')
+    headers = {"Content-Type": "application/json", "User-Agent": "backpack-kit"}
+    if os.environ.get("STUDIO_CLIENT_ID"):
+        headers["CF-Access-Client-Id"] = os.environ["STUDIO_CLIENT_ID"]
+        headers["CF-Access-Client-Secret"] = os.environ.get("STUDIO_CLIENT_SECRET", "")
+    if os.environ.get("STUDIO_URL"):
+        headers["X-Dev-User"] = "claude"
+    req = urllib.request.Request(f"{base}/api/a/{st['slug']}{path}", method=method, headers=headers,
+                                 data=json.dumps(body).encode() if body is not None else None)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.status, json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read().decode("utf-8"))
+        except ValueError:
+            return e.code, {"error": f"HTTP {e.code} (not signed in? set STUDIO_CLIENT_ID and STUDIO_CLIENT_SECRET)"}
+
+
+def studio_state_path(project):
+    return os.path.join(project, ".studio.json")
+
+
+def text_hash(text):
+    import hashlib
+    return hashlib.sha1(text.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+
+
+def cmd_studio_pull(project):
+    """Write every record from the Studio into records/ and remember each one's version."""
+    cfg = load_config(project)
+    code, data = studio_call(cfg, "GET", "/export")
+    if code != 200:
+        sys.exit(f"Studio: {data.get('error', code)}")
+    local = {}
+    for _, path in record_files(project):
+        m = re.match(r"^([A-Z]{1,2}-\d{3,})", os.path.basename(path))
+        if m:
+            local[m.group(1)] = path
+    changed, base = 0, {}
+    for rec in data["records"]:
+        path = local.get(rec["id"]) or os.path.join(project, *rec["path"].split("/"))
+        old = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+        if old is None or text_hash(old) != text_hash(rec["markdown"]):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(rec["markdown"])
+            changed += 1
+        base[rec["id"]] = {"rev": rec["rev"], "hash": text_hash(rec["markdown"]), "path": os.path.relpath(path, project).replace(os.sep, "/")}
+    with open(studio_state_path(project), "w", encoding="utf-8") as f:
+        json.dump({"seq": data["seq"], "records": base}, f, indent=1)
+    print(f"Pulled {len(data['records'])} records from the Studio ({changed} changed).")
+    return 0
+
+
+def cmd_studio_push(project):
+    """Send records edited since the last pull (and new ones) to the Studio, then pull again."""
+    cfg = load_config(project)
+    try:
+        with open(studio_state_path(project), encoding="utf-8") as f:
+            base = json.load(f)["records"]
+    except (OSError, ValueError):
+        sys.exit("Run `kit.py studio pull` first: push needs to know which version you started from.")
+    sent, problems = 0, []
+    for _, path in record_files(project):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        fields, _, errors = parse_record(text)
+        rid = (fields or {}).get("id")
+        if errors or not rid:
+            problems.append(f"{os.path.relpath(path, project)}: {'; '.join(errors) or 'no id'}")
+            continue
+        b = base.get(rid)
+        if b and b["hash"] == text_hash(text):
+            continue
+        code, res = studio_call(cfg, "PUT", f"/records/{rid}/raw", {"markdown": text, "base_rev": b["rev"] if b else None})
+        if code == 200:
+            sent += 1
+            print(f"  {'added' if res.get('created') else 'updated'} {rid}")
+        elif code == 409:
+            problems.append(f"{rid}: {res.get('error')} ({', '.join(res.get('conflicts', []))}). "
+                            "Pull to get their version, then redo your change.")
+        else:
+            problems.append(f"{rid}: {res.get('error', code)}")
+    print(f"Pushed {sent} record(s) to the Studio.")
+    for p in problems:
+        print(f"  ! {p}")
+    if sent:
+        cmd_studio_pull(project)
+    return 1 if problems else 0
+
+
 def slugify(title):
     s = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
     return s[:40].rstrip("-") or "untitled"
@@ -726,6 +828,8 @@ def main():
     np_ = sub.add_parser("new", help="create a record from a template")
     np_.add_argument("type", choices=list(TYPES))
     np_.add_argument("title")
+    stp = sub.add_parser("studio", help="sync records with the Studio (escapepack.ca/studio)")
+    stp.add_argument("action", choices=["pull", "push"], help="pull: Studio -> records/; push: records/ -> Studio")
     ip = sub.add_parser("init", help="set up a new backpack project folder")
     ip.add_argument("target")
     ip.add_argument("--name", required=True)
@@ -744,6 +848,8 @@ def main():
         cmd_serve(project, a.port)
     elif a.cmd == "new":
         cmd_new(project, a.type, a.title)
+    elif a.cmd == "studio":
+        return cmd_studio_pull(project) if a.action == "pull" else cmd_studio_push(project)
 
 
 if __name__ == "__main__":
