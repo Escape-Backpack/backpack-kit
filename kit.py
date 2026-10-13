@@ -682,7 +682,12 @@ def studio_call(cfg, method, path, body=None):
                                  data=json.dumps(body).encode() if body is not None else None)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            return r.status, json.loads(r.read().decode("utf-8"))
+            text = r.read().decode("utf-8", "replace")
+            if "cloudflareaccess.com" in r.geturl() or not text.lstrip().startswith(("{", "[")):
+                # Access sent us to its login page: the service token is missing, wrong, or not allowed.
+                return 401, {"error": "not signed in: check STUDIO_CLIENT_ID and STUDIO_CLIENT_SECRET, and that the "
+                                      "Studio's Access application has a Service Auth policy for that token"}
+            return r.status, json.loads(text)
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read().decode("utf-8"))
