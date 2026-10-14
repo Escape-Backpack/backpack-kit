@@ -47,7 +47,7 @@ geometry guidance, not a confirmed printing fix. Each new package includes a
 
 ## Envelopes and the cipher (all adventures, from October 2026)
 Adventures moved from locks, pouches and pockets in a backpack to **marked envelopes in a
-board-game box**: cheaper, lighter and simpler to reset. Lock-based backpacks (Norse, Hiking...)
+mailer box** (see Packaging): cheaper, lighter and simpler to reset. Lock-based backpacks (Norse, Hiking...)
 keep the kit's `v1` tag.
 
 - Each puzzle's **answer** is 4 or 5 characters (digits, or letters if the cipher has them).
@@ -68,11 +68,25 @@ In `backpack.json`:
 "cipher": { "preset": "planets", "length": [4, 5], "decoys": 2 }
 ```
 
+## Packaging (all adventures, decided 2026-10-14)
+The player keeps the kit and lends it to friends by hand; it is not returned or re-shipped.
+
+- **Box:** one art-printed corrugated mailer per adventure, sized for letter-size paper laid flat:
+  inside about 12 ⅛ × 9 ¼ × 2 in (the standard "literature mailer"). White board takes print
+  better than kraft. Norse is the first. Printer not chosen; Newprint (Ottawa) is the local lead.
+- **Outer wrap:** a poly or kraft mailer bag carries the real shipping label and is thrown away,
+  so the box art never carries an owner's address. Bag type not chosen.
+- **Envelopes:** string-and-button kraft, two sizes: 9 × 12 in for letter-size paper (maps stay
+  flat) and a postcard size (6 × 9 in suggested, not confirmed). Put a decoy in each size so
+  size alone doesn't give an envelope away.
+- 9 × 12 envelopes leave about ⅛ in of spare length in the box. Not yet checked with a real
+  sample box and filled envelopes.
+
 ## What we can build with (all backpacks)
 - **Home printing:** cardstock, colour.
 - **3D printing** at a friend's: Prusa i3 MK3S+, several filament colours (black, white, dark blue, yellow, green...).
 - **Small props:** rulers, UV light and UV pen, and so on.
-- **Bought items:** a board-game box, envelopes, relevant small items.
+- **Bought items:** a mailer box and mailer bag, string-tie envelopes, relevant small items.
 
 ## Puzzle and clue principles
 - Prefer subtle clues, but make every necessary connection inferable from the game.
