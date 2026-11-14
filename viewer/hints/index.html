@@ -49,6 +49,10 @@ main { max-width: 760px; }
 .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .test { border: 1px dashed var(--stale); color: var(--stale); padding: 8px 12px; font: 12px var(--mono); letter-spacing: .06em; margin-bottom: 14px; }
 .cand { font: 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stale); border: 1px dashed var(--stale); padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
+.lockcard.after { margin-left: 22px; border-style: dashed; }
+.secret input { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 3px; margin: 8px 0;
+  background: var(--forest-deep); color: var(--cream); font: 16px var(--mono); letter-spacing: .12em; text-transform: uppercase; outline: none; }
+.secret input:focus { border-color: var(--brass); }
 #done { position: fixed; inset: 0; z-index: 30; background: rgba(10,20,15,.9); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
 #done[hidden] { display: none; }
 #done .inner { background: var(--forest-2); border: 1px solid var(--brass); padding: 32px; max-width: 460px; width: 100%; text-align: center; }
@@ -76,7 +80,8 @@ const KEY = "bp-hints:v2:" + H.name;
 const CFG = H.stats || null;
 const SYNC = CFG && window.EBSync ? EBSync.create({ api: CFG.api, backpack: CFG.backpack, version: CFG.version, locks: LOCKS.length, key: KEY }) : null;
 
-const fresh = () => ({ team: "", session: "", started: 0, paused: 0, pausedAt: 0, shown: {}, solved: {}, finished: 0 });
+// "after" (hints opened on an After card) and "secret" (the hidden puzzle's message, once found) stay on this phone.
+const fresh = () => ({ team: "", session: "", started: 0, paused: 0, pausedAt: 0, shown: {}, solved: {}, finished: 0, after: {}, secret: "" });
 let S = fresh();
 try { S = Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -118,9 +123,47 @@ function render() {
     h += `<section class="lockcard${solved ? " solved" : ""}"><h3>${esc(heading(l, i))}${l.status === "candidate" ? '<span class="cand">candidate</span>' : ""}</h3>
       <div class="levels">${levels}</div>
       ${buttons ? `<div class="btnrow">${buttons}</div>` : ""}</section>`;
+    // Optional: something left to find once this envelope is open ("## After hints" in the record).
+    if (l.after && l.after.length) {
+      const a = S.after[l.id] || 0;
+      h += `<section class="lockcard after"><h3>After puzzle ${i + 1}</h3>
+        <div class="kv">Something left to find once that envelope is open.</div>
+        <div class="levels">${l.after.slice(0, a).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")}</div>
+        ${a < l.after.length ? `<div class="btnrow"><button class="btn" data-after="${i}">Hint ${a + 1}</button></div>` : ""}</section>`;
+    }
   });
+  // Optional hidden puzzle ("hint_secret" in backpack.json): the message only unscrambles with the right answer.
+  if (H.secret) h += `<section class="lockcard secret"><h3>${esc(H.secret.prompt)}</h3>${S.secret
+    ? `<div class="level sol"><b>Found</b>${inline(S.secret)}</div>`
+    : `<div class="kv">Nothing in the game depends on it. If you found something, type it here.</div>
+       <div class="joinrow"><input id="secretin" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="60">
+       <button class="btn" id="secretbtn">Check</button></div><div class="note" id="secretmsg"></div>`}</section>`;
   $("#view").innerHTML = h;
 }
+async function sha(text) { return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))); }
+// The message for a typed answer, or "" when it is not an answer. Same scheme as seal_secret in kit.py.
+async function openSecret(typed) {
+  const k = typed.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!k) return "";
+  const check = [...await sha("chk:" + k)].map(x => x.toString(16).padStart(2, "0")).join("");
+  const hit = H.secret.sealed.find(s => s.check === check);
+  if (!hit) return "";
+  const data = Uint8Array.from(atob(hit.data), c => c.charCodeAt(0));
+  for (let n = 0, i = 0; i < data.length; n++) {
+    const block = await sha(`msg:${n}:${k}`);
+    for (let j = 0; j < block.length && i < data.length; j++, i++) data[i] ^= block[j];
+  }
+  return new TextDecoder().decode(data);
+}
+async function checkSecret() {
+  const msg = $("#secretmsg");
+  try {
+    const found = await openSecret($("#secretin").value);
+    if (found) { S.secret = found; save(); render(); }
+    else msg.textContent = "That is not it. Keep looking, or leave it be.";
+  } catch (err) { msg.textContent = "This browser can't check it here."; }
+}
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "secretin") checkSecret(); });
 function tick() { $("#clock").textContent = fmt(elapsed()); }
 
 // The run as the server has it (this phone's actions included, plus any teammate's).
@@ -128,7 +171,7 @@ function fromServer(st) {
   const next = Object.assign(fresh(), { team: st.team || S.team, session: st.session_id,
     started: SYNC.toLocal(st.started_ms), paused: st.paused_total_ms,
     pausedAt: st.paused_since_ms != null ? SYNC.toLocal(st.paused_since_ms) : 0,
-    finished: st.finished_ms != null ? SYNC.toLocal(st.finished_ms) : 0 });
+    finished: st.finished_ms != null ? SYNC.toLocal(st.finished_ms) : 0, after: S.after, secret: S.secret });
   LOCKS.forEach((l, i) => {
     const lv = st.hints[i] || [];
     if (lv.length) next.shown[l.id] = Math.max(...lv) + 1;
@@ -184,6 +227,13 @@ document.addEventListener("click", async e => {
     if (SYNC) SYNC.op({ t: "hint", lock: i, level: n });
     return;
   }
+  const af = e.target.closest("[data-after]");
+  if (af) {
+    const l = LOCKS[+af.dataset.after];
+    S.after[l.id] = (S.after[l.id] || 0) + 1; save(); render();
+    return;
+  }
+  if (e.target.id === "secretbtn") { checkSecret(); return; }
   const sv = e.target.closest("[data-solve]");
   if (sv) {
     const i = +sv.dataset.solve, linear = !!(CFG && CFG.linear);

@@ -65,7 +65,9 @@ shows ideas, candidates, decided, built or parked records.
 ### Testing and release are separate
 
 Puzzle fields: `test_status: untested | passed | changes-needed`, `test_method:
-physical | digital`, `publish_hints: yes | no`, `hint_title`.
+physical | digital`, `publish_hints: yes | no`, `hint_title`. Optional `envelope_marks`: the symbols printed on the envelope this
+puzzle's answer opens, when the cipher can't express them (Norse's rune wheel); it replaces the cipher's
+code for that puzzle on the hint page and Print envelopes.
 Missing testing means unrecorded; missing publish_hints means private.
 
 The puzzle body has `## How it works`, `## Clue wording`, `## Hints`, `## Solution` and
@@ -113,6 +115,16 @@ One self-contained file. It includes only `decided` and `built` puzzles marked
 `publish_hints: yes`, in play order, each with its `hint_title`, the `## Hints` list one hint
 at a time, then the answer, the envelope it opens and the `## Solution` section.
 Records missing any of these are left off and reported by `check`. Nothing else is included.
+
+Two optional extras:
+- A puzzle body may have `## After hints` (a list). The page then shows a second card under that
+  puzzle, "After puzzle N", with those hints one at a time: for something left to find once the
+  envelope is open (Norse's family tree). They are not logged or counted.
+- `"hint_secret"` in `backpack.json` adds a box at the foot of the page where players type the
+  answer of a hidden, optional puzzle and get a message:
+  `"hint_secret": { "prompt": "Noticed another puzzle?", "answers": ["MORETOCOME"], "message": "..." }`.
+  Spaces, case and punctuation in what players type are ignored. The answer and message are
+  scrambled in the page, so reading the source does not show them.
 
 ### Reset checklist
 One step per envelope in play order: its code, the props that go back in (`after_game: return`),

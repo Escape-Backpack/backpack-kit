@@ -17,8 +17,10 @@ Types for `new`: premise, beat, puzzle, prop, question, asset.
 No dependencies beyond Python 3.9+ and git. Lock-based backpacks use the kit's v1 tag.
 """
 import argparse
+import base64
 import datetime
 import functools
+import hashlib
 import http.server
 import json
 import os
@@ -218,6 +220,13 @@ def answer_problems(answer, cipher):
     return out
 
 
+def puzzle_marks(p, cipher):
+    """The symbols marking the envelope a puzzle's answer opens. A puzzle's own `envelope_marks`
+    (e.g. Norse's rune wheel, which the cipher can't express) wins over the cipher."""
+    own = (p.get("envelope_marks") or "").strip()
+    return list(own) if own else encode(p.get("answer"), cipher)
+
+
 def decoy_codes(cipher, taken, seed):
     """Codes for decoy envelopes: stable for an adventure, never equal to a real code."""
     rng = random.Random(seed)
@@ -247,7 +256,7 @@ def envelope_model(records, cfg, cipher):
     for p in play_order(puzzles, props):
         envelopes.append({
             "puzzle": p["id"], "title": p.get("title") or "", "status": p.get("status") or "",
-            "answer": p.get("answer") or "", "code": encode(p.get("answer"), cipher),
+            "answer": p.get("answer") or "", "code": puzzle_marks(p, cipher),
             "contents": [x["id"] for x in props if x.get("envelope") == p["id"]],
         })
     real = [e["code"] for e in envelopes if e["code"]]
@@ -315,7 +324,7 @@ def load(project):
         for key, fix in LEGACY_FIELDS.items():
             if key in fields:
                 warn(rel, rid, f"{key} is from the lock-based kit; {fix}")
-        if rtype == "puzzle" and fields.get("answer") and fields.get("status") != "parked" and not fields.get("superseded_by"):
+        if rtype == "puzzle" and fields.get("answer") and fields.get("status") != "parked" and not fields.get("superseded_by")                 and not fields.get("envelope_marks"):
             for msg in answer_problems(fields["answer"], cipher):
                 warn(rel, rid, msg)
         if rtype == "puzzle":
@@ -482,6 +491,26 @@ def hint_gaps(p):
     return gaps
 
 
+def secret_key(text):
+    """A typed hidden-puzzle answer, reduced to capitals and digits ("more to come" = MORETOCOME)."""
+    return re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def seal_secret(cfg):
+    """backpack.json "hint_secret" for the hint page: the message is stored once per accepted answer,
+    scrambled with that answer, so neither the answer nor the message can be read in the page source.
+    (It keeps honest players unspoiled; it is not real secrecy.)"""
+    msg, sealed = cfg["message"].encode("utf-8"), []
+    for answer in cfg["answers"]:
+        k, stream, n = secret_key(answer), b"", 0
+        while len(stream) < len(msg):
+            stream += hashlib.sha256(f"msg:{n}:{k}".encode()).digest()
+            n += 1
+        sealed.append({"check": hashlib.sha256(("chk:" + k).encode()).hexdigest(),
+                       "data": base64.b64encode(bytes(a ^ b for a, b in zip(msg, stream))).decode()})
+    return {"prompt": cfg.get("prompt") or "Noticed another puzzle?", "sealed": sealed}
+
+
 def build_hints(data, site, viewer):
     """Write site/hints/index.html: a self-contained, public, player-facing hint page.
     It carries only each puzzle's hint_title, hints, answer, envelope code and solution: no design notes.
@@ -501,13 +530,18 @@ def build_hints(data, site, viewer):
         "status": p["status"],
         "hints": list_items(md_section(p["body"], "Hints")),
         "answer": p.get("answer") or "",
-        "code": "".join(encode(p.get("answer"), cipher) or []),
+        "code": "".join(puzzle_marks(p, cipher) or []),
         "solution": md_section(p["body"], "Solution"),
+        # Optional: hints for what is left to find once this puzzle's envelope is open.
+        "after": list_items(md_section(p["body"], "After hints")),
     } for p in ordered if p["id"] in public_ids]
     payload = {"name": data["config"]["name"], "builtAt": data["builtAt"], "locks": locks}
     # Optional run logging, game codes and team comparison (viewer/sync.js); see docs/RECORDS.md.
     if data["config"].get("stats"):
         payload["stats"] = data["config"]["stats"]
+    secret = data["config"].get("hint_secret") or {}
+    if secret.get("answers") and secret.get("message"):
+        payload["secret"] = seal_secret(secret)
 
     def read(name):
         with open(os.path.join(viewer, name), encoding="utf-8") as f:
