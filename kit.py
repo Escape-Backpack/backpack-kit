@@ -592,7 +592,8 @@ def reset_model(data):
     for n, puzzle in enumerate(ordered, 1):
         inside = [p for p in props if p.get("envelope") == puzzle["id"]]
         steps.append({
-            "id": puzzle["id"], "n": n, "code": "".join(encode(puzzle.get("answer"), cipher) or []),
+            # The marks printed on the envelope: its own envelope_marks if set, else the cipher's code.
+            "id": puzzle["id"], "n": n, "code": "".join(puzzle_marks(puzzle, cipher) or []),
             "put": [name(p) for p in inside if fate(p) == "return"],
             "keep": [name(p) for p in inside if fate(p) == "keep"],
             "notes": notes(inside),
