@@ -120,6 +120,10 @@ Two optional extras:
 - A puzzle body may have `## After hints` (a list). The page then shows a second card under that
   puzzle, "After puzzle N", with those hints one at a time: for something left to find once the
   envelope is open (Norse's family tree). They are not logged or counted.
+- A hint, an After hint or the Solution may contain an image: `![what it shows](Web/Hints/file.webp)`, a path from the
+  project folder (or an `https://` address). `build` copies each file to `site/hints/media/` and the page shows it under
+  that hint, so put an image that gives the answer away on the last hint or the Solution. A missing file is reported by
+  `build` and left out; two images may not share a file name. Keep them small (about 1400 px wide, WebP).
 - `"hint_secret"` in `backpack.json` adds a box at the foot of the page where players type the
   answer of a hidden, optional puzzle and get a message:
   `"hint_secret": { "prompt": "Noticed another puzzle?", "answers": ["MORETOCOME"], "message": "..." }`.

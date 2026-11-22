@@ -15,6 +15,21 @@ function inline(s, idFn) {
   if (idFn) s = s.replace(/(^|[^\w-])((?:PR|ST|PZ|PP|Q|AS)-\d{3,})\b/g, (m, pre, id) => pre + idFn(id));
   return s.replace(/\u0000(\d+)\u0000/g, (m, i) => `<code>${codes[i]}</code>`);
 }
+// Hint page only: hint text with optional images, ![alt](media/file.webp). kit.py copies each image
+// into site/hints/media/ and rewrites its path; anything else is left as plain text.
+const HINT_IMG = /(!\[[^\]]*\]\([^)\s]+\))/;
+function hintInline(s) {
+  return String(s ?? "").split(HINT_IMG).map(part => {
+    const m = part.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
+    return m && /^(media\/|https:)/.test(m[2])
+      ? `<img class="hintimg" src="${esc(m[2])}" alt="${esc(m[1])}" loading="lazy" decoding="async">` : inline(part);
+  }).join("");
+}
+// The same for a multi-paragraph solution: a paragraph that is just an image keeps it, the rest is markdown.
+function hintMd(src) {
+  return String(src || "").replace(/\r/g, "").split(/\n\s*\n/)
+    .map(block => /^!\[[^\]]*\]\([^)\s]+\)$/.test(block.trim()) ? hintInline(block.trim()) : md(block)).join("");
+}
 function md(src, idFn) {
   src = String(src || "").replace(/<!--[^]*?-->/g, "");
   let html = "", para = [], list = null, code = null;

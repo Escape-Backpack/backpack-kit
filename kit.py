@@ -511,7 +511,39 @@ def seal_secret(cfg):
     return {"prompt": cfg.get("prompt") or "Noticed another puzzle?", "sealed": sealed}
 
 
-def build_hints(data, site, viewer):
+HINT_IMG = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
+
+
+def publish_hint_images(locks, project, site, warnings):
+    """![alt](path) in a puzzle's hints, After hints or Solution (path from the project folder): copy the
+    file to site/hints/media/ and point the page at it. A missing file is reported and the image dropped."""
+    media = os.path.join(site, "hints", "media")
+    shutil.rmtree(media, ignore_errors=True)
+    root, seen = os.path.realpath(project), {}
+
+    def fix(m, pid):
+        alt, path = m.group(1), m.group(2)
+        if path.startswith("https://"):
+            return m.group(0)
+        src, name = os.path.realpath(os.path.join(project, path)), os.path.basename(path)
+        if not src.startswith(root + os.sep) or not os.path.isfile(src):
+            warnings.append({"file": "", "id": pid, "msg": f"hint image not found: {path}"})
+            return ""
+        if seen.setdefault(name, src) != src:
+            warnings.append({"file": "", "id": pid, "msg": f"two hint images share the file name {name}"})
+            return ""
+        os.makedirs(media, exist_ok=True)
+        shutil.copyfile(src, os.path.join(media, name))
+        return f"![{alt}](media/{name})"
+
+    for l in locks:
+        sub = lambda s: HINT_IMG.sub(lambda m: fix(m, l["id"]), s)
+        l["hints"] = [sub(s) for s in l["hints"]]
+        l["after"] = [sub(s) for s in l["after"]]
+        l["solution"] = sub(l["solution"])
+
+
+def build_hints(data, site, viewer, project=None):
     """Write site/hints/index.html: a self-contained, public, player-facing hint page.
     It carries only each puzzle's hint_title, hints, answer, envelope code and solution: no design notes.
     (The payload keeps the name "locks" because the stats API and sync.js count steps as locks.)"""
@@ -535,6 +567,8 @@ def build_hints(data, site, viewer):
         # Optional: hints for what is left to find once this puzzle's envelope is open.
         "after": list_items(md_section(p["body"], "After hints")),
     } for p in ordered if p["id"] in public_ids]
+    if project:
+        publish_hint_images(locks, project, site, data["warnings"])
     payload = {"name": data["config"]["name"], "builtAt": data["builtAt"], "locks": locks}
     # Optional run logging, game codes and team comparison (viewer/sync.js); see docs/RECORDS.md.
     if data["config"].get("stats"):
@@ -652,7 +686,7 @@ def cmd_build(project, quiet=False):
     payload = json.dumps(data, ensure_ascii=False, indent=1).replace("</", "<\\/")
     with open(os.path.join(site, "data.js"), "w", encoding="utf-8") as f:
         f.write("window.BACKPACK = " + payload + ";\n")
-    build_hints(data, site, viewer)
+    build_hints(data, site, viewer, project)
     if data["config"].get("publish_reset"):
         build_reset(data, site, viewer)
     if not quiet:

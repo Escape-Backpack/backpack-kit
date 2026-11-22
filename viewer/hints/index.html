@@ -43,6 +43,7 @@ main { max-width: 760px; }
 .level b { font: 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); display: block; margin-bottom: 2px; }
 .level.sol { border-left-color: var(--s-built); }
 .level.sol b { color: var(--s-built); }
+.hintimg { display: block; max-width: 100%; height: auto; margin: 8px 0 2px; border: 1px solid var(--line); border-radius: 2px; }
 .code { font: 1.4rem var(--mono); letter-spacing: .14em; color: var(--brass-2); }
 .envline { margin: 4px 0 6px; font-size: 15px; }
 .envline .sym { font-size: 1.6rem; vertical-align: middle; }
@@ -115,8 +116,8 @@ function render() {
   if (!LOCKS.length) h += `<div class="empty">No puzzles are ready yet.</div>`;
   LOCKS.forEach((l, i) => {
     const n = S.shown[l.id] || 0, total = l.hints.length + 1, solved = !!S.solved[l.id];
-    const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")
-      + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.code ? `<div class="envline">Open the envelope marked <span class="sym">${esc(l.code)}</span></div>` : ""}${l.solution ? `<div class="md">${md(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
+    const levels = l.hints.slice(0, n).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${hintInline(t)}</div>`).join("")
+      + (n >= total ? `<div class="level sol"><b>Solution</b>${l.answer ? `<div class="code">${esc(l.answer)}</div>` : ""}${l.code ? `<div class="envline">Open the envelope marked <span class="sym">${esc(l.code)}</span></div>` : ""}${l.solution ? `<div class="md">${hintMd(l.solution)}</div>` : ""}${!l.answer && !l.solution ? "<i>Not written yet.</i>" : ""}</div>` : "");
     const next = n < l.hints.length ? `Hint ${n + 1}` : n < total ? "Show the solution" : "";
     const buttons = (next ? `<button class="btn" data-next="${i}">${next}</button>` : "")
       + (SYNC ? `<button class="btn${solved ? " on" : ""}" data-solve="${i}">${solved ? "✓ Solved" : "Mark solved"}</button>` : "");
@@ -128,7 +129,7 @@ function render() {
       const a = S.after[l.id] || 0;
       h += `<section class="lockcard after"><h3>After puzzle ${i + 1}</h3>
         <div class="kv">Something left to find once that envelope is open.</div>
-        <div class="levels">${l.after.slice(0, a).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${inline(t)}</div>`).join("")}</div>
+        <div class="levels">${l.after.slice(0, a).map((t, k) => `<div class="level"><b>Hint ${k + 1}</b>${hintInline(t)}</div>`).join("")}</div>
         ${a < l.after.length ? `<div class="btnrow"><button class="btn" data-after="${i}">Hint ${a + 1}</button></div>` : ""}</section>`;
     }
   });
