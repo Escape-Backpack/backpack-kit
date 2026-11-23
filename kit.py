@@ -573,6 +573,9 @@ def build_hints(data, site, viewer, project=None):
     # Optional run logging, game codes and team comparison (viewer/sync.js); see docs/RECORDS.md.
     if data["config"].get("stats"):
         payload["stats"] = data["config"]["stats"]
+    # Optional: a feedback page to link from the hint page ("feedback_url" in backpack.json).
+    if data["config"].get("feedback_url"):
+        payload["feedback"] = data["config"]["feedback_url"]
     secret = data["config"].get("hint_secret") or {}
     if secret.get("answers") and secret.get("message"):
         payload["secret"] = seal_secret(secret)

@@ -66,6 +66,7 @@ main { max-width: 760px; }
   <div class="btnrow" style="margin:0"><button class="btn" id="pause">Pause</button><button class="btn" id="restart">Start over</button><button class="btn" id="finish">Done!</button></div></div></div>
 <header><div><div class="eyebrow">Hint companion</div><h1 id="proj">Adventure</h1><div class="sub"><a href="https://escapepack.ca">escapepack.ca</a></div></div></header>
 <main id="view"></main>
+<p id="fb" class="note" style="text-align:center;margin:24px 16px" hidden>Playing the game? <a id="fblink" target="_blank" rel="noopener">Send us feedback</a></p>
 <div id="done" hidden></div>
 <script src="../common.js"></script>
 <script src="../sync.js"></script>
@@ -192,6 +193,7 @@ function showDone() {
   $("#done").innerHTML = `<div class="inner"><div class="eyebrow">Adventure complete</div><h2>Congratulations${S.team ? ", " + esc(S.team) : ""}!</h2>
     <div class="clock">${fmt(elapsed())}</div><p class="note">${used} hint${used === 1 ? "" : "s"} opened. Thank you for playing ${esc(H.name)}!</p>
     ${SYNC ? `<div id="cmp"><p style="opacity:.7">Comparing with other teams…</p></div>` : ""}
+    ${H.feedback ? `<p style="margin:0 0 16px"><a class="btn big" href="${esc(H.feedback)}" target="_blank" rel="noopener">Tell us how it went</a></p>` : ""}
     <button class="btn big" id="again">Play again</button></div>`;
   $("#done").hidden = false; tick();
   // The server's time is the one every teammate's phone shows.
@@ -279,6 +281,7 @@ $("#finish").addEventListener("click", () => {
 $("#proj").textContent = H.name;
 document.title = H.name + " · Hint companion";
 render(); tick(); setInterval(tick, 1000);
+if (H.feedback) { $("#fblink").href = H.feedback; $("#fb").hidden = false; }
 if (S.finished) showDone();
 </script>
 </body>
